@@ -1,6 +1,8 @@
 import { LANG, LOCALES } from "../lang.js";
-import { getPreference, setPreference } from "./storage.js";
+import { getPreference, isPersistentStorageAvailable, setPreference, subscribeStorageAvailability } from "./storage.js";
 import { iconMarkup } from "./icons.js";
+import { getAppVersion, subscribeAppVersion } from "./version-state.js";
+import { openModal } from "./modal.js";
 
 export function getLanguage() {
   const fallback = navigator.language.toLowerCase().startsWith("zh") ? "zh" : "en";
@@ -13,13 +15,14 @@ export function getMode() {
 }
 
 export function renderHeader(container, { version, onModeChange, onLanguageChange }) {
+  let activeVersion = getAppVersion();
   let language = getLanguage();
   let strings = LANG[language];
   let locale = LOCALES.find((item) => item.id === language) ?? LOCALES[0];
   document.documentElement.lang = locale.htmlLang;
   let mode = getMode();
   let nickname = getPreference("nickname", strings.nickname);
-  const versionUnread = version !== "?" && getPreference("readedVer", "") !== version;
+  const versionUnread = activeVersion !== "?" && getPreference("readedVer", "") !== activeVersion;
 
   const header = document.createElement("header");
   header.className = "app-header";
@@ -37,8 +40,8 @@ export function renderHeader(container, { version, onModeChange, onLanguageChang
         ${iconMarkup("language", "header-icon")}<span>${locale.code}</span>
       </button>
     </span>
-    <button class="version-label" type="button" data-unread="${versionUnread}" title="${escapeHTML(strings.version)} ${escapeHTML(version)}" aria-label="${escapeHTML(strings.version)} ${escapeHTML(version)}">
-      ${iconMarkup(versionUnread ? "unread" : "version", "header-icon")}<span>v${version}</span>
+    <button class="version-label" type="button" data-unread="${versionUnread}" title="${escapeHTML(strings.version)} ${escapeHTML(activeVersion)}" aria-label="${escapeHTML(strings.version)} ${escapeHTML(activeVersion)}">
+      ${iconMarkup(versionUnread ? "unread" : "version", "header-icon")}<span>v${activeVersion}</span>
     </button>
   `;
 
@@ -69,9 +72,9 @@ export function renderHeader(container, { version, onModeChange, onLanguageChang
     if (versionButton.disabled) return;
     versionButton.disabled = true;
     try {
-      const displayed = await openVersionInfo(versionButton);
-      if (displayed && version !== "?") {
-        setPreference("readedVer", version);
+      const displayed = await openVersionInfo(versionButton, strings);
+      if (displayed && activeVersion !== "?") {
+        setPreference("readedVer", activeVersion);
         versionButton.dataset.unread = "false";
         versionButton.querySelector("[data-icon]").outerHTML = iconMarkup("version", "header-icon");
       }
@@ -99,8 +102,8 @@ export function renderHeader(container, { version, onModeChange, onLanguageChang
       modeButton.querySelector("span:last-child").textContent = modeLabel;
       modeButton.setAttribute("aria-label", modeLabel);
       modeButton.title = modeLabel;
-      versionButton.title = `${strings.version} ${version}`;
-      versionButton.setAttribute("aria-label", `${strings.version} ${version}`);
+      paintVersion(activeVersion);
+      if (storageWarning) storageWarning.textContent = strings.storageUnavailable;
       onLanguageChange?.(nextLocale.id);
     },
   }));
@@ -110,11 +113,39 @@ export function renderHeader(container, { version, onModeChange, onLanguageChang
     languageButton.click();
   });
 
+  let storageWarning = null;
+  const paintStorageWarning = () => {
+    if (storageWarning?.isConnected) return;
+    storageWarning = document.createElement("div");
+    storageWarning.className = "storage-warning";
+    storageWarning.setAttribute("role", "alert");
+    storageWarning.textContent = strings.storageUnavailable;
+    header.after(storageWarning);
+  };
+  const paintVersion = (nextVersion) => {
+    activeVersion = nextVersion;
+    const unread = activeVersion !== "?" && getPreference("readedVer", "") !== activeVersion;
+    versionButton.dataset.unread = String(unread);
+    versionButton.title = `${strings.version} ${activeVersion}`;
+    versionButton.setAttribute("aria-label", `${strings.version} ${activeVersion}`);
+    versionButton.querySelector("span:last-child").textContent = `v${activeVersion}`;
+    versionButton.querySelector("[data-icon]").outerHTML = iconMarkup(unread ? "unread" : "version", "header-icon");
+  };
+
   container.append(header);
-  return { language, strings, mode, nickname };
+  if (!isPersistentStorageAvailable()) paintStorageWarning();
+  const unsubscribeStorage = subscribeStorageAvailability((available) => { if (!available) paintStorageWarning(); });
+  const unsubscribeVersion = subscribeAppVersion(paintVersion);
+  const cleanup = () => {
+    header.querySelector(".language-menu")?.closeMenu?.();
+    unsubscribeStorage();
+    unsubscribeVersion();
+    storageWarning?.remove();
+  };
+  return { language, strings, mode, nickname, cleanup };
 }
 
-async function openVersionInfo(versionButton) {
+async function openVersionInfo(versionButton, strings) {
   if (document.querySelector(".version-backdrop")) return false;
   try {
     const response = await fetch(new URL("../version.json", import.meta.url));
@@ -123,23 +154,17 @@ async function openVersionInfo(versionButton) {
     const backdrop = document.createElement("div");
     backdrop.className = "modal-backdrop version-backdrop";
     backdrop.innerHTML = `
-      <section class="modal-card version-dialog" role="dialog" aria-modal="true" aria-label="Version information">
-        <button class="version-close" type="button" aria-label="Close">×</button>
+      <section class="modal-card version-dialog" role="dialog" aria-labelledby="version-dialog-title">
+        <button class="version-close" type="button" aria-label="${escapeHTML(strings.close)}">×</button>
+        <h2 id="version-dialog-title" class="visually-hidden">${escapeHTML(strings.version)}</h2>
         <div class="version-json"></div>
       </section>
     `;
+    if (!versionButton.isConnected) return false;
     backdrop.querySelector(".version-json").append(formatVersionValue(value));
-    const controller = new AbortController();
-    const close = () => {
-      controller.abort();
-      backdrop.remove();
-      versionButton.focus();
-    };
-    backdrop.querySelector(".version-close").addEventListener("click", close, { signal: controller.signal });
-    backdrop.addEventListener("click", (event) => { if (event.target === backdrop) close(); }, { signal: controller.signal });
-    document.addEventListener("keydown", (event) => { if (event.key === "Escape") close(); }, { signal: controller.signal });
-    document.body.append(backdrop);
-    backdrop.querySelector(".version-close").focus();
+    const closeButton = backdrop.querySelector(".version-close");
+    const modal = openModal(backdrop, { initialFocus: closeButton, returnFocus: versionButton });
+    closeButton.addEventListener("click", () => modal.close(), { signal: modal.signal });
     return true;
   } catch (error) {
     console.error("Could not display version.json", error);
@@ -247,9 +272,9 @@ function editNickname(strings, current, onSaved) {
   const backdrop = document.createElement("div");
   backdrop.className = "modal-backdrop";
   backdrop.innerHTML = `
-    <form class="modal-card">
-      <h2>${strings.editNickname}</h2>
-      <input name="nickname" type="text" maxlength="24" value="${escapeHTML(current)}" autocomplete="nickname">
+    <form class="modal-card nickname-dialog" role="dialog" aria-labelledby="nickname-dialog-title">
+      <h2 id="nickname-dialog-title">${strings.editNickname}</h2>
+      <input name="nickname" type="text" maxlength="24" value="${escapeHTML(current)}" autocomplete="nickname" aria-label="${escapeHTML(strings.nickname)}">
       <p class="disclaimer">${strings.nicknameDisclaimer}</p>
       <label class="confirm-row"><input name="read" type="checkbox"><span>${strings.disclaimerRead}</span></label>
       <div class="modal-actions">
@@ -261,18 +286,16 @@ function editNickname(strings, current, onSaved) {
   const form = backdrop.querySelector("form");
   const checkbox = form.elements.read;
   const submit = form.querySelector('[type="submit"]');
-  checkbox.addEventListener("change", () => submit.disabled = !checkbox.checked);
-  form.querySelector(".cancel").addEventListener("click", () => backdrop.remove());
+  const modal = openModal(backdrop, { initialFocus: form.elements.nickname });
+  checkbox.addEventListener("change", () => submit.disabled = !checkbox.checked, { signal: modal.signal });
+  form.querySelector(".cancel").addEventListener("click", () => modal.close(), { signal: modal.signal });
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     const value = form.elements.nickname.value.trim();
     setPreference("nickname", value || strings.nickname);
-    backdrop.remove();
+    modal.close();
     onSaved(value || strings.nickname);
-  });
-  backdrop.addEventListener("click", (event) => { if (event.target === backdrop) backdrop.remove(); });
-  document.body.append(backdrop);
-  form.elements.nickname.focus();
+  }, { signal: modal.signal });
 }
 
 export function escapeHTML(value) {

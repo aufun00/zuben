@@ -2,25 +2,30 @@ import { renderHeader } from "./header.js";
 import { iconMarkup } from "./icons.js";
 import { parseICode } from "./icode.js";
 import { readResultScore } from "./result-code.js";
+import { SCORE_MAX } from "./protocol-constants.js";
 import { LANG } from "../lang.js";
 import { PHASE_ENDED, PHASE_INTRO, PHASE_PAUSED, PHASE_PREPARING, PHASE_RUNNING, PHASE_SETTLING } from "./game-controller.js";
 
 export function renderGameShell(mount, { game, gameIdx, params, version, gameStrings, setupGame }) {
   mount.replaceChildren();
   let cleanup = () => {};
+  let cleanupHeader = () => {};
   let languageBinding = null;
   const dispose = () => {
     cleanup();
+    cleanupHeader();
     removeEventListener("zuben:navigate-home", dispose);
     removeEventListener("popstate", dispose);
   };
   addEventListener("zuben:navigate-home", dispose, { once: true });
   addEventListener("popstate", dispose, { once: true });
-  const { language, strings } = renderHeader(mount, {
+  const headerBinding = renderHeader(mount, {
     version,
     onModeChange: () => {},
     onLanguageChange: (nextLanguage) => languageBinding?.(nextLanguage),
   });
+  const { language, strings } = headerBinding;
+  cleanupHeader = headerBinding.cleanup;
   const localized = gameStrings[language] ?? gameStrings.en;
   const challengeCode = params.get("c");
   const parsed = { ...parseICode(challengeCode), code: challengeCode };
@@ -209,7 +214,7 @@ export function calculateTugState(ownScore, ghostFinalScore, elapsedMs, limitMs)
 }
 
 function normalizeScore(value) {
-  return Math.min(9_999_999, Math.max(0, Math.trunc(Number(value) || 0)));
+  return Math.min(SCORE_MAX, Math.max(0, Math.trunc(Number(value) || 0)));
 }
 
 export function renderControllerStatus(page, snapshot, ghostScore, strings) {
@@ -239,6 +244,24 @@ export function renderControllerStatus(page, snapshot, ghostScore, strings) {
     button.disabled = true;
     setControlButton(button, "finish", strings.finished);
   }
+}
+
+export function renderControllerFailure(page, strings) {
+  const button = page.querySelector(".game-control");
+  button.disabled = true;
+  setControlButton(button, "finish", strings.failed);
+  const stage = page.querySelector("[data-game-stage]");
+  stage.dataset.phase = "PHASE_ERROR";
+  stage.setAttribute("aria-disabled", "true");
+  const panel = document.createElement("section");
+  panel.className = "game-error game-runtime-error";
+  panel.setAttribute("role", "alert");
+  const title = document.createElement("h1");
+  title.textContent = strings.gameError;
+  const hint = document.createElement("p");
+  hint.textContent = strings.gameErrorHint;
+  panel.append(title, hint);
+  stage.replaceChildren(panel);
 }
 
 export function updateGameChromeLanguage(page, strings) {

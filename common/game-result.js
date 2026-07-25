@@ -2,10 +2,11 @@ import { createChallengeEntry, saveChallengeOnce } from "./challenges.js";
 import { getPreference } from "./storage.js";
 import { encodeResultCode } from "./result-code.js";
 import { buildChallengeURL, copyText, inviteShareText, scoreShareText, shareContent } from "./share.js";
-import { createQrSvg } from "./qr.js";
+import { renderQr } from "./qr.js";
+import { openModal } from "./modal.js";
 
 export function createGameResultView({ overlay, gameIdx, game, parsed, result, ghostScore, language, strings, localized }) {
-  const frozenResult = Object.freeze({ score: result.score, reason: result.reason, endedAtMs: result.endedAtMs });
+  const frozenResult = Object.freeze({ score: result.score, reason: result.reason });
   let activeLanguage = language;
   let activeStrings = strings;
   let activeLocalized = localized;
@@ -67,8 +68,8 @@ export function createGameResultView({ overlay, gameIdx, game, parsed, result, g
     const backdrop = document.createElement("div");
     backdrop.className = "modal-backdrop result-share-backdrop";
     backdrop.innerHTML = `
-      <section class="modal-card result-share-sheet">
-        <h2></h2>
+      <section class="modal-card result-share-sheet" role="dialog" aria-labelledby="result-share-title">
+        <h2 id="result-share-title"></h2>
         <div class="result-qr"></div>
         <p class="result-share-copy"></p>
         <div class="modal-actions">
@@ -80,20 +81,22 @@ export function createGameResultView({ overlay, gameIdx, game, parsed, result, g
     `;
     backdrop.querySelector("h2").textContent = activeStrings.shareMyScore;
     backdrop.querySelector(".result-share-copy").textContent = text;
-    backdrop.querySelector(".result-qr").append(createQrSvg(url, activeStrings.resultQr));
+    renderQr(backdrop.querySelector(".result-qr"), url, {
+      label: activeStrings.resultQr,
+      fallbackText: activeStrings.qrUnavailable,
+    });
     const closeButton = backdrop.querySelector(".cancel");
     closeButton.textContent = activeStrings.cancel;
     backdrop.querySelector("[data-copy]").textContent = activeStrings.copy;
     backdrop.querySelector("[data-native-share]").textContent = activeStrings.share;
-    closeButton.addEventListener("click", () => backdrop.remove());
-    backdrop.addEventListener("click", (event) => { if (event.target === backdrop) backdrop.remove(); });
-    backdrop.querySelector("[data-copy]").addEventListener("click", () => copyText(`${text}\n${url}`, activeStrings));
+    const modal = openModal(backdrop, { initialFocus: closeButton, returnFocus: scoreButton });
+    closeButton.addEventListener("click", () => modal.close(), { signal: modal.signal });
+    backdrop.querySelector("[data-copy]").addEventListener("click", () => copyText(`${text}\n${url}`, activeStrings), { signal: modal.signal });
     backdrop.querySelector("[data-native-share]").addEventListener("click", async (event) => {
       event.currentTarget.disabled = true;
       await shareContent({ text, url, strings: activeStrings });
       event.currentTarget.disabled = false;
-    });
-    document.body.append(backdrop);
+    }, { signal: modal.signal });
   }
 
   async function shareNewChallenge() {

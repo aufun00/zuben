@@ -1,4 +1,5 @@
-const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+import { BASE64URL_ALPHABET } from "./protocol-constants.js";
+
 const CODE_RE = /^[A-Za-z0-9_-]{10}$/;
 
 export function generateICode(durIdx) {
@@ -45,20 +46,20 @@ function crc6(value, bitCount) {
 function encode56(value) {
   let output = "";
   for (let shift = 50; shift >= 2; shift -= 6) {
-    output += ALPHABET[Number((value >> BigInt(shift)) & 0x3fn)];
+    output += BASE64URL_ALPHABET[Number((value >> BigInt(shift)) & 0x3fn)];
   }
-  output += ALPHABET[Number(value & 0x03n) << 4];
+  output += BASE64URL_ALPHABET[Number(value & 0x03n) << 4];
   return output;
 }
 
 function decode56(code) {
   let value = 0n;
   for (let index = 0; index < 9; index += 1) {
-    const digit = ALPHABET.indexOf(code[index]);
+    const digit = BASE64URL_ALPHABET.indexOf(code[index]);
     if (digit < 0) return null;
     value = (value << 6n) | BigInt(digit);
   }
-  const finalDigit = ALPHABET.indexOf(code[9]);
+  const finalDigit = BASE64URL_ALPHABET.indexOf(code[9]);
   if (finalDigit < 0 || (finalDigit & 0x0f) !== 0) return null;
   return (value << 2n) | BigInt(finalDigit >> 4);
 }

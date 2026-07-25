@@ -7,14 +7,14 @@ export function createStackerEngine(seed, limitMs) {
   const scale = STACKER_BOARD_CFG.logicScale;
   const baseSize = Math.round(STACKER_BOARD_CFG.baseSize * scale);
   const minMotionSpan = Math.round(STACKER_BOARD_CFG.minMotionSpan * scale);
-  const speedBase = Math.round(STACKER_MOTION_CFG.baseSpeed * scale);
-  const speedStep = Math.round(STACKER_MOTION_CFG.speedBase * scale);
+  const initialSpeed = Math.round(STACKER_MOTION_CFG.initialSpeed * scale);
+  const speedStepPerLayer = Math.round(STACKER_MOTION_CFG.speedStepPerLayer * scale);
   let footprint = freezeRect({ x: 0, z: 0, width: baseSize, depth: baseSize });
   let score = 0;
-  let speed = speedBase;
+  let speed = initialSpeed;
   let layerCount = 0;
   let ended = false;
-  let layers = [];
+  let layers = Object.freeze([]);
   let moving = createMoving(0);
 
   function randomBelow(bound) {
@@ -97,7 +97,7 @@ export function createStackerEngine(seed, limitMs) {
     footprint = layer.footprint;
     layerCount = nextLayer;
     score = Math.min(STACKER_SCORE_CFG.maxScore, score + points);
-    speed += Math.floor(speedStep * moving.shape.speedMultiplierPermille / 1000);
+    speed += Math.floor(speedStepPerLayer * moving.shape.speedMultiplierPermille / 1000);
     layers = Object.freeze([...layers, layer]);
     moving = createMoving(raceTimeMs);
     return {

@@ -1,4 +1,5 @@
 import { GAME_FLOW_CFG } from "../common/game-flow-config.js";
+import { SCORE_MAX } from "../common/protocol-constants.js";
 import { createMaskMesh } from "./mesh.js";
 
 const masks = {
@@ -24,6 +25,7 @@ export const STACKER_SHAPES = Object.freeze(Object.entries(masks).map(([id, mask
   mask: Object.freeze(mask),
   mesh: createMaskMesh(mask),
   weight: id === "solid" ? Object.keys(masks).length - 1 : 1,
+  // Deliberate per-shape extension points required by DESIGN.md; values are uniform today.
   speedMultiplierPermille: 1000,
   cutsFootprint: true,
   color: colors[id],
@@ -37,15 +39,15 @@ export const STACKER_BOARD_CFG = Object.freeze({
 });
 
 export const STACKER_MOTION_CFG = Object.freeze({
-  baseSpeed: 2.8,
-  speedBase: 0.25,
+  initialSpeed: 2.8,
+  speedStepPerLayer: 0.25,
 });
 
 export const STACKER_SCORE_CFG = Object.freeze({
   retentionBasis: 10_000,
   timeTickMs: 100,
   scoreDivisor: 40_000,
-  maxScore: 9_999_999,
+  maxScore: SCORE_MAX,
 });
 
 export const STACKER_ANIMATION_CFG = Object.freeze({ landMs: 180 });

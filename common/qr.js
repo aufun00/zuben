@@ -89,6 +89,23 @@ export function createQrSvg(text, label = "QR code") {
   return svg;
 }
 
+export function renderQr(container, text, { label = "QR code", fallbackText = "QR code unavailable" } = {}) {
+  container.replaceChildren();
+  container.classList.remove("qr-unavailable");
+  try {
+    container.append(createQrSvg(text, label));
+    return true;
+  } catch (error) {
+    console.error("Could not create QR code", error);
+    container.classList.add("qr-unavailable");
+    const fallback = document.createElement("p");
+    fallback.className = "qr-fallback";
+    fallback.textContent = fallbackText;
+    container.append(fallback);
+    return false;
+  }
+}
+
 class QrCode {
   constructor(version, dataCodewords) {
     this.version = version;

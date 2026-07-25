@@ -1,4 +1,4 @@
-import { renderGameShell, renderControllerStatus } from "../common/game-shell.js";
+import { renderGameShell, renderControllerFailure, renderControllerStatus } from "../common/game-shell.js";
 import {
   COMMAND_PAUSE, COMMAND_RESUME, COMMAND_START,
   PHASE_ENDED, PHASE_INTRO, PHASE_PAUSED, PHASE_PREPARING, PHASE_RUNNING, PHASE_SETTLING,
@@ -8,6 +8,7 @@ import { createGameResultView } from "../common/game-result.js";
 import { STACKER_ANIMATION_CFG, STACKER_BOARD_CFG, STACKER_FLOW_CFG, STACKER_RENDER_CFG, STACKER_SHAPES } from "./config.js";
 import { createStackerEngine } from "./engine.js";
 import { GAME_LANG } from "./lang.js";
+import { bindGestureInput } from "../common/gesture-input.js";
 
 const SHAPES_BY_ID = new Map(STACKER_SHAPES.map((shape) => [shape.id, shape]));
 
@@ -22,18 +23,19 @@ function setupStacker({ page, stage, game, gameIdx, parsed, durationMs, ghostSco
   let activeLocalized = localized;
   let lastSnapshot = null;
   let resultView = null;
+  let failed = false;
   stage.classList.add("stacker-stage");
-  stage.tabIndex = 0;
-  stage.setAttribute("role", "button");
   stage.innerHTML = `
-    <svg class="stacker-scene" data-scene viewBox="0 0 600 620" role="img">
-      <g data-camera>
-        <g data-static-tower></g>
-        <g data-footprint></g>
-        <g class="stacker-layer moving" data-moving></g>
-      </g>
-    </svg>
-    <div class="stacker-readout" aria-live="polite"><span data-layer-readout></span><span data-shape-readout></span></div>
+    <div class="stacker-playfield" data-playfield role="button" tabindex="-1">
+      <svg class="stacker-scene" data-scene viewBox="0 0 600 620" role="img">
+        <g data-camera>
+          <g data-static-tower></g>
+          <g data-footprint></g>
+          <g class="stacker-layer moving" data-moving></g>
+        </g>
+      </svg>
+      <div class="stacker-readout" aria-live="polite"><span data-layer-readout></span><span data-shape-readout></span></div>
+    </div>
     <div class="stacker-cover" data-cover>
       <div class="rules-card stacker-rules">
         <h1 data-instructions-title></h1>
@@ -45,7 +47,8 @@ function setupStacker({ page, stage, game, gameIdx, parsed, durationMs, ghostSco
     <output class="countdown" data-countdown hidden></output>
   `;
 
-  const scene = stage.querySelector("[data-scene]");
+  const playfield = stage.querySelector("[data-playfield]");
+  const scene = playfield.querySelector("[data-scene]");
   const camera = scene.querySelector("[data-camera]");
   const staticTower = scene.querySelector("[data-static-tower]");
   const footprintLayer = scene.querySelector("[data-footprint]");
@@ -65,8 +68,9 @@ function setupStacker({ page, stage, game, gameIdx, parsed, durationMs, ghostSco
     lastSnapshot = snapshot;
     renderControllerStatus(page, snapshot, ghostScore, activeStrings);
     stage.dataset.phase = snapshot.phase;
-    cover.hidden = snapshot.phase !== PHASE_INTRO && snapshot.phase !== PHASE_PAUSED && snapshot.phase !== PHASE_PREPARING;
-    stage.setAttribute("aria-disabled", String(snapshot.phase !== PHASE_RUNNING));
+    cover.hidden = !snapshot.concealed && snapshot.phase !== PHASE_INTRO && snapshot.phase !== PHASE_PAUSED && snapshot.phase !== PHASE_PREPARING;
+    playfield.setAttribute("aria-disabled", String(snapshot.phase !== PHASE_RUNNING));
+    playfield.tabIndex = snapshot.phase === PHASE_RUNNING ? 0 : -1;
     renderScene(snapshot);
     overlay.hidden = snapshot.phase !== PHASE_ENDED;
     if (snapshot.phase === PHASE_ENDED && !resultView) {
@@ -90,6 +94,11 @@ function setupStacker({ page, stage, game, gameIdx, parsed, durationMs, ghostSco
     applyAction: (action, remainMs, raceTimeMs) => engine.applyDrop(action, remainMs, raceTimeMs),
     settleSteps,
     onChange,
+    onError: (error) => {
+      console.error("Stacker controller failed", error);
+      failed = true;
+      renderControllerFailure(page, activeStrings);
+    },
     flowCfg: STACKER_FLOW_CFG,
   });
 
@@ -101,20 +110,28 @@ function setupStacker({ page, stage, game, gameIdx, parsed, durationMs, ghostSco
   });
 
   const drop = () => {
-    if (controller.snapshot().phase === PHASE_RUNNING) controller.submitAction({ kind: "drop" });
+    if (controller.snapshot().phase === PHASE_RUNNING) void controller.submitAction({ kind: "drop" }).catch(() => {});
   };
-  stage.addEventListener("click", (event) => { if (!event.target.closest("[data-cover], [data-overlay]")) drop(); });
-  stage.addEventListener("keydown", (event) => {
-    if (event.key !== " " && event.key !== "Enter") return;
+  const unbindGesture = bindGestureInput(playfield, {
+    begin: () => controller.snapshot().phase === PHASE_RUNNING ? { downAction: { kind: "drop" } } : null,
+    commit: drop,
+  });
+  playfield.addEventListener("keydown", (event) => {
+    if ((event.key !== " " && event.key !== "Enter") || event.repeat) return;
     event.preventDefault();
     drop();
   });
-  const onVisibility = () => controller.handleVisibility(document.hidden);
+  const syncInterruption = () => controller.handleInterruption(document.hidden || !document.hasFocus());
+  const onBlur = () => controller.handleInterruption(true);
+  const onFocus = () => syncInterruption();
+  const onVisibility = () => syncInterruption();
+  window.addEventListener("blur", onBlur);
+  window.addEventListener("focus", onFocus);
   document.addEventListener("visibilitychange", onVisibility);
   renderInstructionText();
 
   function renderInstructionText() {
-    stage.setAttribute("aria-label", `${activeLocalized.tower}. ${activeLocalized.drop}`);
+    playfield.setAttribute("aria-label", `${activeLocalized.tower}. ${activeLocalized.drop}`);
     scene.setAttribute("aria-label", activeLocalized.tower);
     stage.querySelector("[data-instructions-title]").textContent = activeLocalized.instructionsTitle;
     stage.querySelector("[data-rules-copy]").textContent = activeLocalized.rules;
@@ -165,6 +182,10 @@ function setupStacker({ page, stage, game, gameIdx, parsed, durationMs, ghostSco
     setLanguage({ strings: nextStrings, localized: nextLocalized }) {
       activeStrings = nextStrings;
       activeLocalized = nextLocalized;
+      if (failed) {
+        renderControllerFailure(page, activeStrings);
+        return;
+      }
       renderInstructionText();
       resultView?.setLanguage({
         language: document.documentElement.lang.startsWith("zh") ? "zh" : "en",
@@ -174,7 +195,10 @@ function setupStacker({ page, stage, game, gameIdx, parsed, durationMs, ghostSco
       if (lastSnapshot) onChange(lastSnapshot);
     },
     cleanup() {
+      unbindGesture();
       controller.destroy();
+      window.removeEventListener("blur", onBlur);
+      window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisibility);
     },
   };
@@ -270,7 +294,7 @@ function project(x, z, level) {
   const worldZ = z / unit;
   return {
     x: 300 + (worldX - worldZ) * 34,
-    y: 410 + (worldX + worldZ - 6) * 17 - level * STACKER_RENDER_CFG.layerHeightPx,
+    y: 410 + (worldX + worldZ - STACKER_BOARD_CFG.baseSize) * 17 - level * STACKER_RENDER_CFG.layerHeightPx,
   };
 }
 

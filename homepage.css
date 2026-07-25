@@ -26,7 +26,9 @@
 .new-menu-button:hover { border-color: var(--accent-2); transform: translateY(-1px); }
 .new-menu-button strong { display: block; margin-bottom: 7px; font-size: 20px; }
 .new-menu-button small { color: var(--muted); line-height: 1.4; }
-.menu-mark { display: grid; flex: 0 0 58px; place-items: center; height: 58px; border-radius: 18px; background: #85f2c51a; color: var(--accent); font-size: 30px; }
+.menu-mark { display: grid; flex: 0 0 58px; place-items: center; height: 58px; border-radius: 18px; background: color-mix(in srgb, var(--accent), transparent 90%); color: var(--accent); font-size: 30px; }
+.menu-icon { display: block; width: 34px; height: 34px; }
+.menu-icon svg { display: block; width: 100%; height: 100%; }
 .section-nav { margin-bottom: 10px; }
 .section-nav button { width: 40px; height: 38px; border: 0; border-radius: 12px; background: var(--surface); color: var(--muted); cursor: pointer; }
 
@@ -45,9 +47,14 @@
 .share-icon svg { display: block; width: 100%; height: 100%; }
 .share-launch strong { font-size: 12px; }
 .share-details { display: grid; align-content: center; min-width: 0; gap: 10px; }
-.code-line { display: grid; gap: 4px; }
+.code-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: stretch; gap: 8px; }
+.code-line { display: grid; min-height: 40px; align-content: center; gap: 4px; }
 .code-line code { overflow: hidden; font-size: 14px; font-weight: 800; text-overflow: ellipsis; }
 .code-line time { color: var(--muted); font-size: 11px; }
+.play-launch { display: grid; width: 40px; min-width: 40px; aspect-ratio: 1; place-items: center; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); color: var(--accent); text-decoration: none; }
+.play-launch:hover { border-color: var(--accent); }
+.play-icon { display: block; width: 24px; height: 24px; }
+.play-icon svg { display: block; width: 100%; height: 100%; }
 .memo-input { width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--text); }
 
 .challenge-section, .challenge-bar, .game-section { margin-top: 14px; }
@@ -64,7 +71,7 @@
   background: var(--surface);
 }
 .challenge-card { cursor: pointer; }
-.challenge-card.selected { border-color: var(--accent); box-shadow: inset 0 0 0 1px #85f2c544; }
+.challenge-card.selected { border-color: var(--accent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent), transparent 73%); }
 .game-icon { display: block; width: 58px; height: 58px; }
 .game-icon svg, .compact-game-icon svg, .brand-mark svg { width: 100%; height: 100%; }
 .game-copy { min-width: 0; }
@@ -72,15 +79,15 @@
 .game-copy h2 time { color: var(--muted); font-size: 10px; font-weight: 500; }
 .game-copy p { display: -webkit-box; overflow: hidden; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .duration-buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; max-width: 116px; }
-.duration-buttons button { min-width: 42px; height: 35px; padding: 0 8px; border: 1px solid #85f2c555; border-radius: 11px; background: #85f2c512; color: var(--accent); cursor: pointer; font-weight: 800; }
-.duration-buttons button:hover { background: var(--accent); color: #09251c; }
-.delete-button { width: 38px; height: 38px; border: 1px solid #ff738544; border-radius: 12px; background: #ff738510; color: var(--danger); cursor: pointer; font-size: 22px; }
+.duration-buttons button { min-width: 42px; height: 35px; padding: 0 8px; border: 1px solid color-mix(in srgb, var(--accent), transparent 67%); border-radius: 11px; background: color-mix(in srgb, var(--accent), transparent 93%); color: var(--accent); cursor: pointer; font-weight: 800; }
+.duration-buttons button:hover { background: var(--accent); color: var(--accent-ink); }
+.delete-button { width: 38px; height: 38px; border: 1px solid color-mix(in srgb, var(--danger), transparent 73%); border-radius: 12px; background: color-mix(in srgb, var(--danger), transparent 94%); color: var(--danger); cursor: pointer; font-size: 22px; }
 .marked-icon { position: relative; display: block; width: fit-content; }
-.marked-icon b { position: absolute; right: -3px; bottom: -2px; display: grid; place-items: center; min-width: 20px; height: 20px; padding: 0 4px; border: 2px solid var(--surface); border-radius: 10px; background: var(--accent); color: #09251c; font-size: 10px; }
+.marked-icon b { position: absolute; right: -3px; bottom: -2px; display: grid; place-items: center; min-width: 20px; height: 20px; padding: 0 4px; border: 2px solid var(--surface); border-radius: 10px; background: var(--accent); color: var(--accent-ink); font-size: 10px; }
 
 .challenge-strip { display: flex; gap: 9px; overflow-x: auto; padding: 3px 2px 10px; scrollbar-width: thin; scroll-snap-type: x proximity; }
 .compact-challenge { display: grid; flex: 0 0 78px; justify-items: center; gap: 3px; padding: 8px 6px; border: 1px solid var(--line); border-radius: 17px; background: var(--surface); cursor: pointer; scroll-snap-align: start; }
-.compact-challenge.selected { border-color: var(--accent); background: #85f2c510; }
+.compact-challenge.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent), transparent 94%); }
 .compact-game-icon { display: block; width: 48px; height: 48px; }
 .compact-challenge code { font-size: 11px; font-weight: 800; }
 .compact-challenge small { width: 100%; overflow: hidden; color: var(--muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }

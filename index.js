@@ -1,54 +1,83 @@
-import { GAME_LIST, findGame } from "./common/game-list.js";
-import { renderHomepage } from "./homepage.js";
+let reloadingForWorkerUpdate = false;
+if ("serviceWorker" in navigator) {
+  const hadServiceWorkerController = Boolean(navigator.serviceWorker.controller);
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!hadServiceWorkerController || reloadingForWorkerUpdate) return;
+    reloadingForWorkerUpdate = true;
+    location.reload();
+  });
+}
+
+const [gameListModule, homepageModule, versionStateModule, modalModule, timeoutModule] = await Promise.all([
+  import("./common/game-list.js"),
+  import("./homepage.js"),
+  import("./common/version-state.js"),
+  import("./common/modal.js"),
+  import("./common/timeout.js"),
+]);
+const { GAME_LIST, findGame } = gameListModule;
+const { disposeHomepage, renderHomepage } = homepageModule;
+const { getAppVersion, setAppVersion } = versionStateModule;
+const { closeActiveModal } = modalModule;
+const { withTimeout } = timeoutModule;
 
 const mount = document.querySelector("#app");
-let appVersion = "?";
+let routeGeneration = 0;
 
 async function route() {
+  const generation = ++routeGeneration;
+  closeActiveModal({ restoreFocus: false });
+  disposeHomepage(mount);
   const url = new URL(location.href);
   const gameIdx = url.searchParams.get("g");
   const game = gameIdx !== null ? findGame(gameIdx) : null;
 
   if (!game) {
     if (url.search) history.replaceState(null, "", url.pathname);
-    renderHomepage(mount, { gameList: GAME_LIST, version: appVersion });
+    renderHomepage(mount, { gameList: GAME_LIST, version: getAppVersion() });
     return;
   }
 
   try {
     const module = await import(`./${game.gameID}/game.js`);
+    if (generation !== routeGeneration) return;
     module.renderGamePage(mount, {
       game,
       gameIdx: Number(gameIdx),
       params: new URLSearchParams(url.search),
-      version: appVersion,
+      version: getAppVersion(),
     });
   } catch (error) {
+    if (generation !== routeGeneration) return;
     console.error(error);
     history.replaceState(null, "", url.pathname);
-    renderHomepage(mount, { gameList: GAME_LIST, version: appVersion });
+    renderHomepage(mount, { gameList: GAME_LIST, version: getAppVersion() });
   }
 }
 
 window.addEventListener("popstate", route);
 window.addEventListener("zuben:navigate-home", route);
 
-appVersion = await readServiceWorkerVersion();
-route();
+void route();
+void readServiceWorkerVersion().then(setAppVersion);
 
 async function readServiceWorkerVersion() {
   if (!("serviceWorker" in navigator)) return "?";
   try {
-    const registration = await navigator.serviceWorker.register("./sw.js");
-    if (registration.active && !registration.waiting && !registration.installing) {
-      try { await registration.update(); } catch {}
-    }
-    const worker = await getVersionWorker(registration);
-    return await requestVersion(worker);
+    return await withTimeout(readVersionFromWorker(), 5000, "Service Worker version flow timed out");
   } catch (error) {
     console.error("Could not read Zuben version from Service Worker", error);
     return "?";
   }
+}
+
+async function readVersionFromWorker() {
+  const registration = await navigator.serviceWorker.register("./sw.js");
+  if (registration.active && !registration.waiting && !registration.installing) {
+    try { await registration.update(); } catch {}
+  }
+  const worker = await getVersionWorker(registration);
+  return requestVersion(worker);
 }
 
 function getVersionWorker(registration) {

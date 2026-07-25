@@ -1,18 +1,17 @@
-const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-const MAX_SCORE = 9_999_999;
+import { BASE64URL_ALPHABET, SCORE_MAX } from "./protocol-constants.js";
 
 export function encodeResultCode(score, gameID, iCode) {
   const normalized = normalizeScore(score);
   const value = normalized ^ resultMask(gameID, iCode);
-  return [18, 12, 6, 0].map((shift) => ALPHABET[(value >>> shift) & 0x3f]).join("");
+  return [18, 12, 6, 0].map((shift) => BASE64URL_ALPHABET[(value >>> shift) & 0x3f]).join("");
 }
 
 export function parseResultCode(code, gameID, iCode) {
   if (!/^[A-Za-z0-9_-]{4}$/.test(code ?? "")) return { ok: false, score: 0 };
   let value = 0;
-  for (const character of code) value = (value << 6) | ALPHABET.indexOf(character);
+  for (const character of code) value = (value << 6) | BASE64URL_ALPHABET.indexOf(character);
   const score = (value ^ resultMask(gameID, iCode)) >>> 0;
-  return score <= MAX_SCORE ? { ok: true, score } : { ok: false, score: 0 };
+  return score <= SCORE_MAX ? { ok: true, score } : { ok: false, score: 0 };
 }
 
 export function readResultScore(params, gameID, iCode) {
@@ -33,6 +32,6 @@ function resultMask(gameID, iCode) {
 
 function normalizeScore(score) {
   const value = Number(score);
-  if (!Number.isInteger(value) || value < 0 || value > MAX_SCORE) throw new RangeError("Score must be an integer from 0 to 9,999,999");
+  if (!Number.isInteger(value) || value < 0 || value > SCORE_MAX) throw new RangeError("Score must be an integer from 0 to 9,999,999");
   return value;
 }

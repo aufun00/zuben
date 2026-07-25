@@ -1,15 +1,23 @@
 import { LANG } from "./lang.js";
-import { renderHeader, getLanguage, getMode, escapeHTML } from "./common/header.js";
+import { renderHeader, escapeHTML } from "./common/header.js";
 import { iconMarkup } from "./common/icons.js";
-import { loadChallenges, saveChallenges } from "./common/storage.js";
-import { createQrSvg } from "./common/qr.js";
+import { MAX_CHALLENGE_MEMO_LENGTH, loadChallenges, saveChallenges } from "./common/storage.js";
+import { renderQr } from "./common/qr.js";
 import { createChallengeEntry, formatTime } from "./common/challenges.js";
 import { buildChallengeURL, copyText, inviteShareText, shareContent } from "./common/share.js";
+import { closeActiveModal, openModal } from "./common/modal.js";
 
-let newStep = "menu";
 let selectedKey = null;
+const renderStates = new WeakMap();
+const HOME_STEP_STATE_KEY = "zubenHomeStep";
+const HOME_STEPS = new Set(["create", "share"]);
 
 export async function renderHomepage(mount, context) {
+  const previous = renderStates.get(mount);
+  previous?.cleanup();
+  closeActiveModal({ restoreFocus: false });
+  const stateToken = { cleanup: () => {} };
+  renderStates.set(mount, stateToken);
   mount.replaceChildren();
   const rerender = () => renderHomepage(mount, context);
   const headerState = renderHeader(mount, {
@@ -17,8 +25,11 @@ export async function renderHomepage(mount, context) {
     onModeChange: rerender,
     onLanguageChange: rerender,
   });
+  stateToken.cleanup = headerState.cleanup;
   const { language, strings, mode } = headerState;
+  const newStep = readNewStep();
   const gameText = await loadGameText(context.gameList, language);
+  if (renderStates.get(mount) !== stateToken || !mount.isConnected) return;
   const challenges = loadChallenges().sort((a, b) => b.createdAt - a.createdAt);
   if (!selectedKey && challenges.length) selectedKey = challengeKey(challenges[0]);
   if (selectedKey && !challenges.some((entry) => challengeKey(entry) === selectedKey)) {
@@ -30,29 +41,37 @@ export async function renderHomepage(mount, context) {
   mount.append(main);
 
   if (mode === "new") {
-    renderNewMode(main, { ...context, strings, language, gameText, challenges, rerender });
+    renderNewMode(main, { ...context, strings, language, gameText, challenges, newStep, rerender });
   } else {
     renderProMode(main, { ...context, strings, language, gameText, challenges, rerender });
   }
 }
 
+export function disposeHomepage(mount) {
+  const state = renderStates.get(mount);
+  if (!state) return;
+  renderStates.delete(mount);
+  state.cleanup();
+  closeActiveModal({ restoreFocus: false });
+}
+
 function renderNewMode(main, state) {
-  if (newStep === "menu") {
+  if (state.newStep === "menu") {
     const menu = document.createElement("section");
     menu.className = "new-menu";
     menu.innerHTML = `
-      ${menuButton("publish", state.strings.newPublish, state.strings.newPublishHint, "↗")}
-      ${menuButton("create", state.strings.newCreate, state.strings.newCreateHint, "+")}
+      ${menuButton("publish", state.strings.newPublish, state.strings.newPublishHint, "share")}
+      ${menuButton("create", state.strings.newCreate, state.strings.newCreateHint, "create-list")}
     `;
-    menu.querySelector('[data-action="publish"]').addEventListener("click", () => { newStep = "share"; state.rerender(); });
-    menu.querySelector('[data-action="create"]').addEventListener("click", () => { newStep = "create"; state.rerender(); });
+    menu.querySelector('[data-action="publish"]').addEventListener("click", () => navigateNewStep("share", state));
+    menu.querySelector('[data-action="create"]').addEventListener("click", () => navigateNewStep("create", state));
     main.append(menu);
     return;
   }
 
-  const nav = sectionNav(state.strings, () => { newStep = "menu"; state.rerender(); });
+  const nav = sectionNav(state.strings, () => history.back());
   main.append(nav);
-  if (newStep === "create") {
+  if (state.newStep === "create") {
     main.append(renderGameList(state));
     return;
   }
@@ -83,16 +102,22 @@ function renderShareArea(state) {
     <div class="share-grid">
       <button class="qr-box" type="button" title="${escapeHTML(url)}"></button>
       <div class="share-details">
-        <div class="code-line"><code>${selected.iCode}</code><time>${escapeHTML(shortTime)}</time></div>
-        <input class="memo-input" aria-label="${state.strings.memo}" value="${escapeHTML(selected.memo)}">
+        <div class="code-row">
+          <div class="code-line"><code>${escapeHTML(selected.iCode)}</code><time>${escapeHTML(shortTime)}</time></div>
+          <a class="play-launch" data-play-challenge href="${escapeHTML(url)}" target="_blank" rel="noopener" aria-label="${state.strings.openGameNewTab}">${iconMarkup("gamepad", "play-icon")}</a>
+        </div>
+        <input class="memo-input" maxlength="${MAX_CHALLENGE_MEMO_LENGTH}" aria-label="${state.strings.memo}" value="${escapeHTML(selected.memo)}">
       </div>
       <button class="share-launch" type="button" aria-label="${state.strings.share}">${iconMarkup("share", "share-icon")}<strong>${state.strings.share}</strong></button>
     </div>
   `);
 
   const qrButton = section.querySelector(".qr-box");
-  qrButton.setAttribute("aria-label", state.strings.enlargeChallengeQr);
-  qrButton.append(createQrSvg(url, state.strings.challengeQr));
+  const hasQr = renderQr(qrButton, url, {
+    label: state.strings.challengeQr,
+    fallbackText: state.strings.qrUnavailable,
+  });
+  qrButton.setAttribute("aria-label", hasQr ? state.strings.enlargeChallengeQr : state.strings.challengeLinkActions);
 
   const memo = section.querySelector(".memo-input");
   memo.addEventListener("change", () => {
@@ -111,7 +136,7 @@ function openChallengeQr(url, state) {
   const backdrop = document.createElement("div");
   backdrop.className = "modal-backdrop challenge-qr-backdrop";
   backdrop.innerHTML = `
-    <section class="modal-card challenge-qr-dialog" role="dialog" aria-modal="true" aria-labelledby="challenge-qr-title">
+    <section class="modal-card challenge-qr-dialog" role="dialog" aria-labelledby="challenge-qr-title">
       <h2 id="challenge-qr-title">${state.strings.challengeQrTitle}</h2>
       <div class="challenge-qr-large"></div>
       <div class="modal-actions challenge-qr-actions">
@@ -121,19 +146,13 @@ function openChallengeQr(url, state) {
       </div>
     </section>
   `;
-  backdrop.querySelector(".challenge-qr-large").append(createQrSvg(url, state.strings.challengeQr));
-  const controller = new AbortController();
-  const close = () => {
-    controller.abort();
-    backdrop.remove();
-    document.querySelector(".qr-box")?.focus();
-  };
-  backdrop.querySelector(".cancel").addEventListener("click", close, { signal: controller.signal });
-  backdrop.querySelector("[data-copy-link]").addEventListener("click", () => copyText(url, state.strings), { signal: controller.signal });
-  backdrop.addEventListener("click", (event) => { if (event.target === backdrop) close(); }, { signal: controller.signal });
-  document.addEventListener("keydown", (event) => { if (event.key === "Escape") close(); }, { signal: controller.signal });
-  document.body.append(backdrop);
-  backdrop.querySelector("[data-open-game]").focus();
+  renderQr(backdrop.querySelector(".challenge-qr-large"), url, {
+    label: state.strings.challengeQr,
+    fallbackText: state.strings.qrUnavailable,
+  });
+  const modal = openModal(backdrop, { initialFocus: backdrop.querySelector("[data-open-game]"), returnFocus: document.querySelector(".qr-box") });
+  backdrop.querySelector(".cancel").addEventListener("click", () => modal.close(), { signal: modal.signal });
+  backdrop.querySelector("[data-copy-link]").addEventListener("click", () => copyText(url, state.strings), { signal: modal.signal });
 }
 
 function renderChallengeList(state, compact) {
@@ -204,7 +223,18 @@ function createChallenge(game, durIdx, state) {
   entries.unshift(entry);
   saveChallenges(entries);
   selectedKey = challengeKey(entry);
-  newStep = "share";
+  navigateNewStep("share", state);
+}
+
+function readNewStep() {
+  const step = history.state?.[HOME_STEP_STATE_KEY];
+  return HOME_STEPS.has(step) ? step : "menu";
+}
+
+function navigateNewStep(step, state) {
+  if (!HOME_STEPS.has(step) || readNewStep() === step) return;
+  const currentState = history.state && typeof history.state === "object" ? history.state : {};
+  history.pushState({ ...currentState, [HOME_STEP_STATE_KEY]: step }, "", location.href);
   state.rerender();
 }
 
@@ -226,7 +256,7 @@ function compactChallengeCard(entry, state) {
   card.className = "compact-challenge";
   card.innerHTML = `
     <span class="marked-icon">${iconMarkup(entry.gameID, "compact-game-icon")}<b>${entry.durationMark}</b></span>
-    <code>${entry.iCode.slice(-4)}</code>
+    <code>${escapeHTML(entry.iCode.slice(-4))}</code>
     <small>${escapeHTML(entry.memo)}</small>
   `;
   card.setAttribute("aria-label", `${state.gameText[entry.gameID].name}, ${entry.memo}`);
@@ -237,8 +267,8 @@ function confirmDelete(entry, state) {
   const backdrop = document.createElement("div");
   backdrop.className = "modal-backdrop";
   backdrop.innerHTML = `
-    <div class="modal-card">
-      <h2>🗑 ${state.strings.deleteTitle}</h2>
+    <div class="modal-card" role="dialog" aria-labelledby="delete-dialog-title">
+      <h2 id="delete-dialog-title">🗑 ${state.strings.deleteTitle}</h2>
       <p class="disclaimer">${state.strings.deleteBody}</p>
       <div class="modal-actions">
         <button class="action-button cancel" type="button">${state.strings.cancel}</button>
@@ -246,15 +276,15 @@ function confirmDelete(entry, state) {
       </div>
     </div>
   `;
-  backdrop.querySelector(".cancel").addEventListener("click", () => backdrop.remove());
+  const modal = openModal(backdrop, { initialFocus: backdrop.querySelector(".cancel") });
+  backdrop.querySelector(".cancel").addEventListener("click", () => modal.close(), { signal: modal.signal });
   backdrop.querySelector(".confirm").addEventListener("click", () => {
     const entries = loadChallenges().filter((item) => challengeKey(item) !== challengeKey(entry));
     saveChallenges(entries);
     if (selectedKey === challengeKey(entry)) selectedKey = entries[0] ? challengeKey(entries[0]) : null;
-    backdrop.remove();
+    modal.close({ restoreFocus: false });
     state.rerender();
-  });
-  document.body.append(backdrop);
+  }, { signal: modal.signal });
 }
 
 function attachLongPress(element, callback) {
@@ -295,8 +325,8 @@ async function loadGameText(gameList, language) {
   return Object.fromEntries(pairs);
 }
 
-function menuButton(action, title, hint, mark) {
-  return `<button class="new-menu-button" type="button" data-action="${action}"><span class="menu-mark">${mark}</span><span><strong>${title}</strong><small>${hint}</small></span></button>`;
+function menuButton(action, title, hint, iconID) {
+  return `<button class="new-menu-button" type="button" data-action="${action}"><span class="menu-mark">${iconMarkup(iconID, "menu-icon")}</span><span><strong>${title}</strong><small>${hint}</small></span></button>`;
 }
 
 function sectionNav(strings, callback) {

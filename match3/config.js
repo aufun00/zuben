@@ -1,3 +1,5 @@
+import { SCORE_MAX } from "../common/protocol-constants.js";
+
 export const MATCH3_BOARD_CFG = Object.freeze({
   width: 8,
   height: 8,
@@ -7,7 +9,7 @@ export const MATCH3_BOARD_CFG = Object.freeze({
 
 export const MATCH3_SCORE_CFG = Object.freeze({
   timeDivisorMs: 200,
-  maxScore: 9_999_999,
+  maxScore: SCORE_MAX,
 });
 
 export const MATCH3_ANIMATION_CFG = Object.freeze({
