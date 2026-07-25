@@ -1,9 +1,10 @@
 import { LANG } from "./lang.js";
-import { generateICode } from "./common/icode.js";
 import { renderHeader, getLanguage, getMode, escapeHTML } from "./common/header.js";
 import { iconMarkup } from "./common/icons.js";
 import { loadChallenges, saveChallenges } from "./common/storage.js";
 import { createQrSvg } from "./common/qr.js";
+import { createChallengeEntry, formatTime } from "./common/challenges.js";
+import { buildChallengeURL, copyText, inviteShareText, shareContent } from "./common/share.js";
 
 let newStep = "menu";
 let selectedKey = null;
@@ -101,7 +102,7 @@ function renderShareArea(state) {
     saveChallenges(entries);
     state.rerender();
   });
-  section.querySelector(".share-launch").addEventListener("click", () => shareChallenge(url, state));
+  section.querySelector(".share-launch").addEventListener("click", () => shareChallenge(selected, url, state));
   qrButton.addEventListener("click", () => copyText(url, state.strings));
   return section;
 }
@@ -169,14 +170,7 @@ function renderGameList(state) {
 function createChallenge(game, durIdx, state) {
   const duration = game.durs[durIdx];
   if (!duration) return;
-  const createdAt = Date.now();
-  const entry = {
-    gameID: game.gameID,
-    iCode: generateICode(durIdx),
-    durationMark: Math.max(1, Math.round(duration / 10)),
-    createdAt,
-    memo: formatTime(createdAt, state.language, "long"),
-  };
+  const entry = createChallengeEntry({ gameID: game.gameID, durIdx, duration, language: state.language });
   const entries = loadChallenges();
   entries.unshift(entry);
   saveChallenges(entries);
@@ -250,51 +244,19 @@ function attachLongPress(element, callback) {
   element.addEventListener("keydown", (event) => { if (event.key === "Delete") callback(); });
 }
 
-async function shareChallenge(url, state) {
+async function shareChallenge(entry, url, state) {
   const nickname = document.querySelector(".nickname-button")?.textContent?.trim() || "Player";
-  const text = `${nickname} · FPCodex`;
-  if (navigator.share) {
-    try { await navigator.share({ title: "FPCodex", text, url }); return; } catch (error) {
-      if (error?.name === "AbortError") return;
-    }
-  }
-  await copyText(url, state.strings);
-}
-
-async function copyText(text, strings) {
-  try {
-    await navigator.clipboard.writeText(text);
-    showToast(strings.copied);
-  } catch {
-    prompt(strings.copy, text);
-  }
-}
-
-function showToast(text) {
-  const toast = document.createElement("div");
-  toast.className = "toast";
-  toast.textContent = text;
-  document.body.append(toast);
-  setTimeout(() => toast.remove(), 1400);
+  const text = inviteShareText(nickname, state.gameText[entry.gameID].name, state.strings);
+  await shareContent({ text, url, strings: state.strings });
 }
 
 function challengeURL(entry, gameList) {
   const gameIdx = gameList.findIndex((item) => item.gameID === entry.gameID);
   if (gameIdx < 0) throw new Error(`Unknown gameID: ${entry.gameID}`);
-  const url = new URL(location.pathname, location.origin);
-  url.searchParams.set("g", String(gameIdx));
-  url.searchParams.set("c", entry.iCode);
-  return url.href;
+  return buildChallengeURL({ gameIdx, iCode: entry.iCode });
 }
 
 function challengeKey(entry) { return `${entry.gameID}:${entry.iCode}`; }
-
-function formatTime(value, language, style) {
-  const options = style === "short"
-    ? { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }
-    : { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" };
-  return new Intl.DateTimeFormat(language === "zh" ? "zh-CN" : "en", options).format(new Date(value));
-}
 
 async function loadGameText(gameList, language) {
   const pairs = await Promise.all(gameList.map(async (game) => {

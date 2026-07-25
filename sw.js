@@ -1,11 +1,12 @@
-const VERSION = "0.0.3";
+const VERSION = "0.0.9";
 const CACHE_NAME = `fpcodex-${VERSION}`;
 const CORE = [
   "./", "./index.html", "./index.js", "./index.css", "./homepage.js", "./homepage.css",
   "./lang.js", "./icon.svg", "./manifest.webmanifest",
   "./common/game-list.js", "./common/storage.js", "./common/icode.js", "./common/rng.js", "./common/qr.js", "./common/icons.js",
-  "./common/header.js", "./common/game-shell.js", "./common/game-shell.css",
-  "./match3/game.js", "./match3/lang.js", "./stacker/game.js", "./stacker/lang.js",
+  "./common/header.js", "./common/challenges.js", "./common/share.js", "./common/result-code.js", "./common/game-result.js",
+  "./common/game-flow-config.js", "./common/game-controller.js", "./common/game-shell.js", "./common/game-shell.css",
+  "./match3/config.js", "./match3/engine.js", "./match3/game.js", "./match3/game.css", "./match3/lang.js", "./stacker/game.js", "./stacker/lang.js",
   "./runner/game.js", "./runner/lang.js",
 ];
 

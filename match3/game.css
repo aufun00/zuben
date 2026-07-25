@@ -1,0 +1,40 @@
+.match3-stage { display: grid; min-height: min(690px, calc(100dvh - 142px)); align-content: center; padding: 18px; }
+.match3-board { display: grid; width: min(100%, 560px); aspect-ratio: 1; grid-template-columns: repeat(8, 1fr); gap: clamp(3px, 1vw, 7px); padding: clamp(7px, 2vw, 13px); border: 1px solid var(--line); border-radius: 22px; background: #0d1019aa; box-shadow: inset 0 0 28px #0005; }
+.match3-tile { position: relative; min-width: 0; padding: 0; border: 0; border-radius: 28%; background: var(--tile-color); cursor: pointer; box-shadow: inset 0 -5px 9px #0002, 0 4px 9px #0005; transition: opacity 150ms ease, transform 120ms ease, box-shadow 120ms ease; }
+.match3-tile::after { content: ""; position: absolute; inset: 10%; border-radius: inherit; background: linear-gradient(145deg, #fff7, transparent 44%); }
+.match3-tile[data-color="-1"] { opacity: 0; }
+.match3-tile[data-color="0"] { --tile-color: #70e8bb; }
+.match3-tile[data-color="1"] { --tile-color: #9489f6; }
+.match3-tile[data-color="2"] { --tile-color: #ffb361; }
+.match3-tile[data-color="3"] { --tile-color: #ff6f82; }
+.match3-tile[data-color="4"] { --tile-color: #62b8ff; }
+.match3-tile[data-color="5"] { --tile-color: #f0df68; }
+.match3-tile:hover { transform: translateY(-1px); }
+.match3-tile:focus-visible, .match3-tile.selected { z-index: 1; outline: 3px solid #fff; outline-offset: 1px; box-shadow: 0 0 0 5px #85f2c566, 0 7px 14px #0008; }
+.match3-tile.clearing { opacity: 0; transform: scale(.35) rotate(8deg); }
+.match3-board[aria-disabled="true"] .match3-tile { cursor: default; }
+.match3-cover { position: absolute; z-index: 4; inset: 0; display: grid; padding: 18px; place-items: center; border-radius: inherit; background: var(--bg); }
+.match3-cover[hidden] { display: none; }
+.match3-rules { width: min(100%, 460px); margin: 0; box-shadow: 0 18px 60px #000b; }
+.match3-rules h1 { margin: 0 0 12px; color: var(--accent); font-size: 22px; }
+.match3-rules > p { margin: 0; color: var(--text); }
+.match3-rules ol { display: grid; gap: 8px; margin: 16px 0 0; padding-left: 22px; color: var(--muted); text-align: left; line-height: 1.45; }
+.match3-overlay { position: absolute; z-index: 5; inset: 0; display: grid; place-items: center; padding: 18px; overflow: auto; border-radius: inherit; background: #10121af2; text-align: center; }
+.match3-overlay[hidden] { display: none; }
+.result-card { display: grid; width: min(100%, 440px); gap: 10px; padding: clamp(20px, 6vw, 34px); border: 1px solid var(--line); border-radius: 26px; background: var(--surface); box-shadow: 0 22px 70px #000a; }
+.result-outcome-icon { color: var(--accent); font-size: 48px; line-height: 1; text-shadow: 0 0 20px color-mix(in srgb, var(--accent), transparent 40%); }
+.game-result-overlay[data-outcome="lose"] .result-outcome-icon { color: var(--danger); }
+.game-result-overlay[data-outcome="tie"] .result-outcome-icon { color: var(--even); }
+.result-card h1 { margin: 0; font-size: clamp(25px, 7vw, 38px); }
+.result-reason { margin: -3px 0 4px; color: var(--muted); }
+.result-score { min-width: 7ch; color: var(--accent); font-size: clamp(38px, 12vw, 64px); font-variant-numeric: tabular-nums; line-height: 1.1; }
+.result-action { min-height: 48px; padding: 10px 15px; border: 1px solid var(--line); border-radius: 15px; background: var(--surface-2); cursor: pointer; color: var(--text); font-weight: 800; }
+.result-action.primary { margin-top: 8px; border-color: transparent; background: var(--accent); color: #09251c; }
+.result-action:disabled { cursor: not-allowed; opacity: .5; }
+.result-secondary-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.result-share-sheet { text-align: center; }
+.result-qr { width: min(62vw, 230px); margin: 0 auto; padding: 10px; border-radius: 17px; background: #fff; }
+.result-qr svg { display: block; width: 100%; height: auto; }
+.result-share-copy { overflow-wrap: anywhere; color: var(--muted); line-height: 1.45; }
+@media (max-width: 380px) { .match3-stage { padding: 10px; } .match3-board { gap: 3px; padding: 7px; border-radius: 17px; } }
+@media (prefers-reduced-motion: reduce) { .match3-tile { transition: none; } }

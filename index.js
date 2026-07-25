@@ -1,7 +1,7 @@
 import { GAME_LIST, findGame } from "./common/game-list.js";
 import { renderHomepage } from "./homepage.js";
 
-const APP_VERSION = "0.0.3";
+const APP_VERSION = "0.0.9";
 const mount = document.querySelector("#app");
 
 async function route() {
@@ -19,6 +19,7 @@ async function route() {
     const module = await import(`./${game.gameID}/game.js`);
     module.renderGamePage(mount, {
       game,
+      gameIdx: Number(gameIdx),
       params: new URLSearchParams(url.search),
       version: APP_VERSION,
     });
