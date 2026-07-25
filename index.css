@@ -1,0 +1,118 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif;
+  font-synthesis: none;
+  --bg: #10121a;
+  --surface: #191c28;
+  --surface-2: #222638;
+  --line: #30364d;
+  --text: #f7f7fb;
+  --muted: #a7aec4;
+  --accent: #85f2c5;
+  --accent-2: #a9a0ff;
+  --danger: #ff7385;
+  --radius: 20px;
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); }
+body { min-width: 320px; min-height: 100dvh; }
+button, input, textarea { font: inherit; }
+button { color: inherit; }
+
+#app { min-height: 100dvh; }
+
+.app-header {
+  position: sticky;
+  z-index: 20;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 54px;
+  padding: max(8px, env(safe-area-inset-top)) 12px 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--line), transparent 22%);
+  background: color-mix(in srgb, var(--bg), transparent 7%);
+  backdrop-filter: blur(16px);
+}
+
+.brand-button, .header-button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.brand-button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 12px;
+  color: var(--accent);
+}
+
+.brand-button:hover { background: var(--surface-2); }
+.brand-mark { width: 27px; height: 27px; }
+
+.nickname-button {
+  max-width: min(30vw, 150px);
+  overflow: hidden;
+  padding: 7px 8px;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.header-spacer { flex: 1; min-width: 0; }
+.header-button { padding: 7px 5px; color: var(--muted); font-size: 12px; font-weight: 750; letter-spacing: .04em; }
+.header-button:hover { color: var(--text); }
+.version-label { color: #737b94; font-size: 11px; white-space: nowrap; }
+
+.modal-backdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: #090a10cc;
+}
+
+.modal-card {
+  width: min(100%, 410px);
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--surface);
+  box-shadow: 0 24px 80px #0008;
+}
+
+.modal-card h2 { margin: 0 0 16px; font-size: 20px; }
+.modal-card input[type="text"] { width: 100%; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); color: var(--text); }
+.disclaimer { margin: 13px 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.confirm-row { display: flex; gap: 9px; align-items: flex-start; font-size: 13px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+
+.action-button {
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--surface-2);
+  cursor: pointer;
+  font-weight: 750;
+}
+.action-button.primary { border-color: transparent; background: var(--accent); color: #09251c; }
+.action-button.danger { border-color: color-mix(in srgb, var(--danger), transparent 50%); color: var(--danger); }
+.action-button:disabled { cursor: not-allowed; opacity: .45; }
+
+.empty-state { padding: 28px 16px; color: var(--muted); text-align: center; }
+
+@media (max-width: 370px) {
+  .app-header { gap: 3px; padding-inline: 7px; }
+  .nickname-button { max-width: 82px; padding-inline: 4px; }
+  .header-button { padding-inline: 3px; font-size: 11px; }
+  .version-label { font-size: 10px; }
+}
