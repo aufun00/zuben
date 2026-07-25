@@ -1,18 +1,18 @@
-export function buildChallengeURL({ gameIdx, iCode, resultCode, baseHref = location.href }) {
+import { encodeResultCode } from "./result-code.js";
+
+export function buildChallengeSharePayload({
+  nickname, score, gameIdx, gameID, gameDisplayName, iCode, strings, baseHref = location.href,
+}) {
   const base = new URL(baseHref);
   const url = new URL(base.pathname, base.origin);
   url.searchParams.set("g", String(gameIdx));
   url.searchParams.set("c", iCode);
-  if (resultCode) url.searchParams.set("r", resultCode);
-  return url.href;
-}
-
-export function scoreShareText(nickname, score, gameDisplayName, iCode, strings) {
-  return `${nickname}${strings.scoreShareAfterNickname}${score}${strings.scoreShareAfterScore}${gameDisplayName} # ${iCode.slice(-4)}`;
-}
-
-export function inviteShareText(nickname, gameDisplayName, strings) {
-  return `${nickname}${strings.inviteShareAfterNickname}${gameDisplayName}`;
+  url.searchParams.set("r", encodeResultCode(score, gameID, iCode));
+  const scoreText = score === 0
+    ? ""
+    : `${strings.challengeShareScorePrefix}${score}${strings.challengeShareScoreSuffix}`;
+  const text = `${nickname}${strings.challengeShareAfterNickname}${scoreText}${strings.challengeShareBeforeGame}${gameDisplayName} # ${iCode.slice(-4)}`;
+  return Object.freeze({ text, url: url.href });
 }
 
 export async function shareContent({ text, url, strings, title = "Zuben", navigatorObject = navigator }) {

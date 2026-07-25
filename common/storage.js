@@ -1,5 +1,6 @@
 import { GAME_LIST } from "./game-list.js";
 import { parseICode } from "./icode.js";
+import { SCORE_MAX } from "./protocol-constants.js";
 
 export const MAX_CHALLENGES = 100;
 export const MAX_CHALLENGE_MEMO_LENGTH = 200;
@@ -123,6 +124,7 @@ function normalizeChallengeEntry(value) {
     durationMark: Math.max(1, Math.round(duration / 10)),
     createdAt: value.createdAt,
     memo: truncateMemo(value.memo.trim()),
+    bestScore: normalizeBestScore(value.bestScore),
   };
 }
 
@@ -134,12 +136,16 @@ function truncateMemo(value) {
   return Array.from(value).slice(0, MAX_CHALLENGE_MEMO_LENGTH).join("");
 }
 
+function normalizeBestScore(value) {
+  return Number.isSafeInteger(value) && value >= 0 && value <= SCORE_MAX ? value : 0;
+}
+
 function cloneChallenges(entries) {
   return entries.map((entry) => ({ ...entry }));
 }
 
 function toPersistedChallenges(entries) {
-  return entries.map(({ gameID, iCode, createdAt, memo }) => ({ gameID, iCode, createdAt, memo }));
+  return entries.map(({ gameID, iCode, createdAt, memo, bestScore }) => ({ gameID, iCode, createdAt, memo, bestScore }));
 }
 
 function markStorageUnavailable(error) {

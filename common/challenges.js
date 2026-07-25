@@ -1,5 +1,6 @@
 import { generateICode } from "./icode.js";
 import { loadChallenges, saveChallenges } from "./storage.js";
+import { SCORE_MAX } from "./protocol-constants.js";
 
 export function createChallengeEntry({ gameID, durIdx, duration, language, now = Date.now(), iCode = generateICode(durIdx) }) {
   return Object.freeze({
@@ -8,6 +9,7 @@ export function createChallengeEntry({ gameID, durIdx, duration, language, now =
     durationMark: Math.max(1, Math.round(duration / 10)),
     createdAt: now,
     memo: formatTime(now, language, "long"),
+    bestScore: 0,
   });
 }
 
@@ -18,6 +20,16 @@ export function saveChallengeOnce(entry) {
     saveChallenges(entries);
   }
   return entry;
+}
+
+export function updateChallengeBestScore({ gameID, iCode, score }) {
+  if (!Number.isSafeInteger(score) || score < 0 || score > SCORE_MAX) return false;
+  const entries = loadChallenges();
+  const entry = entries.find((item) => item.gameID === gameID && item.iCode === iCode);
+  if (!entry || score <= entry.bestScore) return false;
+  entry.bestScore = score;
+  saveChallenges(entries);
+  return true;
 }
 
 export function formatTime(value, language, style) {

@@ -4,7 +4,7 @@ import { iconMarkup } from "./common/icons.js";
 import { MAX_CHALLENGE_MEMO_LENGTH, loadChallenges, saveChallenges } from "./common/storage.js";
 import { renderQr } from "./common/qr.js";
 import { createChallengeEntry, formatTime } from "./common/challenges.js";
-import { buildChallengeURL, copyText, inviteShareText, shareContent } from "./common/share.js";
+import { buildChallengeSharePayload, copyText, shareContent } from "./common/share.js";
 import { closeActiveModal, openModal } from "./common/modal.js";
 
 let selectedKey = null;
@@ -96,7 +96,7 @@ function renderShareArea(state) {
     return section;
   }
 
-  const url = challengeURL(selected, state.gameList);
+  const { url } = challengeSharePayload(selected, state);
   const shortTime = formatTime(selected.createdAt, state.language, "short");
   section.insertAdjacentHTML("beforeend", `
     <div class="share-grid">
@@ -127,7 +127,7 @@ function renderShareArea(state) {
     saveChallenges(entries);
     state.rerender();
   });
-  section.querySelector(".share-launch").addEventListener("click", () => shareChallenge(selected, url, state));
+  section.querySelector(".share-launch").addEventListener("click", () => shareChallenge(selected, state));
   qrButton.addEventListener("click", () => openChallengeQr(url, state));
   return section;
 }
@@ -245,7 +245,10 @@ function fullChallengeCard(entry, state) {
   card.innerHTML = `
     <div class="marked-icon">${iconMarkup(entry.gameID, "game-icon")}<b>${entry.durationMark}</b></div>
     <div class="game-copy"><h2>${escapeHTML(text.name)} <time>${escapeHTML(formatTime(entry.createdAt, state.language, "short"))}</time></h2><p>${escapeHTML(entry.memo)}</p></div>
-    <button class="delete-button" type="button" aria-label="${state.strings.delete}">×</button>
+    <div class="challenge-controls">
+      <span class="challenge-score"><span class="visually-hidden">${state.strings.bestScore}: ${entry.bestScore}</span><span aria-hidden="true">${entry.bestScore}</span></span>
+      <button class="delete-button" type="button" aria-label="${state.strings.delete}">${iconMarkup("trash", "delete-icon")}</button>
+    </div>
   `;
   return card;
 }
@@ -257,9 +260,10 @@ function compactChallengeCard(entry, state) {
   card.innerHTML = `
     <span class="marked-icon">${iconMarkup(entry.gameID, "compact-game-icon")}<b>${entry.durationMark}</b></span>
     <code>${escapeHTML(entry.iCode.slice(-4))}</code>
+    <strong class="compact-score" aria-hidden="true">${entry.bestScore}</strong>
     <small>${escapeHTML(entry.memo)}</small>
   `;
-  card.setAttribute("aria-label", `${state.gameText[entry.gameID].name}, ${entry.memo}`);
+  card.setAttribute("aria-label", `${state.gameText[entry.gameID].name}, ${entry.iCode.slice(-4)}, ${state.strings.bestScore}: ${entry.bestScore}, ${entry.memo}`);
   return card;
 }
 
@@ -303,16 +307,23 @@ function attachLongPress(element, callback) {
   element.addEventListener("keydown", (event) => { if (event.key === "Delete") callback(); });
 }
 
-async function shareChallenge(entry, url, state) {
-  const nickname = document.querySelector(".nickname-button")?.textContent?.trim() || "Player";
-  const text = inviteShareText(nickname, state.gameText[entry.gameID].name, state.strings);
-  await shareContent({ text, url, strings: state.strings });
+async function shareChallenge(entry, state) {
+  const payload = challengeSharePayload(entry, state);
+  await shareContent({ ...payload, strings: state.strings });
 }
 
-function challengeURL(entry, gameList) {
-  const gameIdx = gameList.findIndex((item) => item.gameID === entry.gameID);
+function challengeSharePayload(entry, state) {
+  const gameIdx = state.gameList.findIndex((item) => item.gameID === entry.gameID);
   if (gameIdx < 0) throw new Error(`Unknown gameID: ${entry.gameID}`);
-  return buildChallengeURL({ gameIdx, iCode: entry.iCode });
+  return buildChallengeSharePayload({
+    nickname: document.querySelector(".nickname-button")?.textContent?.trim() || "Player",
+    score: entry.bestScore,
+    gameIdx,
+    gameID: entry.gameID,
+    gameDisplayName: state.gameText[entry.gameID].name,
+    iCode: entry.iCode,
+    strings: state.strings,
+  });
 }
 
 function challengeKey(entry) { return `${entry.gameID}:${entry.iCode}`; }

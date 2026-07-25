@@ -1,12 +1,12 @@
-import { createChallengeEntry, saveChallengeOnce } from "./challenges.js";
+import { createChallengeEntry, saveChallengeOnce, updateChallengeBestScore } from "./challenges.js";
 import { getPreference } from "./storage.js";
-import { encodeResultCode } from "./result-code.js";
-import { buildChallengeURL, copyText, inviteShareText, scoreShareText, shareContent } from "./share.js";
+import { buildChallengeSharePayload, copyText, shareContent } from "./share.js";
 import { renderQr } from "./qr.js";
 import { openModal } from "./modal.js";
 
 export function createGameResultView({ overlay, gameIdx, game, parsed, result, ghostScore, language, strings, localized }) {
   const frozenResult = Object.freeze({ score: result.score, reason: result.reason });
+  updateChallengeBestScore({ gameID: game.gameID, iCode: parsed.code, score: frozenResult.score });
   let activeLanguage = language;
   let activeStrings = strings;
   let activeLocalized = localized;
@@ -61,10 +61,15 @@ export function createGameResultView({ overlay, gameIdx, game, parsed, result, g
   }
 
   function openScoreShareSheet() {
-    const resultCode = frozenResult.score === 0 ? undefined : encodeResultCode(frozenResult.score, game.gameID, parsed.code);
-    const url = buildChallengeURL({ gameIdx, iCode: parsed.code, resultCode });
-    const nickname = currentNickname();
-    const text = scoreShareText(nickname, frozenResult.score, activeLocalized.name, parsed.code, activeStrings);
+    const { text, url } = buildChallengeSharePayload({
+      nickname: currentNickname(),
+      score: frozenResult.score,
+      gameIdx,
+      gameID: game.gameID,
+      gameDisplayName: activeLocalized.name,
+      iCode: parsed.code,
+      strings: activeStrings,
+    });
     const backdrop = document.createElement("div");
     backdrop.className = "modal-backdrop result-share-backdrop";
     backdrop.innerHTML = `
@@ -93,9 +98,13 @@ export function createGameResultView({ overlay, gameIdx, game, parsed, result, g
     closeButton.addEventListener("click", () => modal.close(), { signal: modal.signal });
     backdrop.querySelector("[data-copy]").addEventListener("click", () => copyText(`${text}\n${url}`, activeStrings), { signal: modal.signal });
     backdrop.querySelector("[data-native-share]").addEventListener("click", async (event) => {
-      event.currentTarget.disabled = true;
-      await shareContent({ text, url, strings: activeStrings });
-      event.currentTarget.disabled = false;
+      const button = event.currentTarget;
+      button.disabled = true;
+      try {
+        await shareContent({ text, url, strings: activeStrings });
+      } finally {
+        button.disabled = false;
+      }
     }, { signal: modal.signal });
   }
 
@@ -113,9 +122,16 @@ export function createGameResultView({ overlay, gameIdx, game, parsed, result, g
         });
         saveChallengeOnce(resultChallenge);
       }
-      const url = buildChallengeURL({ gameIdx, iCode: resultChallenge.iCode });
-      const text = inviteShareText(currentNickname(), activeLocalized.name, activeStrings);
-      await shareContent({ text, url, strings: activeStrings });
+      const payload = buildChallengeSharePayload({
+        nickname: currentNickname(),
+        score: resultChallenge.bestScore,
+        gameIdx,
+        gameID: resultChallenge.gameID,
+        gameDisplayName: activeLocalized.name,
+        iCode: resultChallenge.iCode,
+        strings: activeStrings,
+      });
+      await shareContent({ ...payload, strings: activeStrings });
     } finally {
       sharingChallenge = false;
       challengeButton.disabled = false;

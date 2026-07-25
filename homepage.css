@@ -81,7 +81,11 @@
 .duration-buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; max-width: 116px; }
 .duration-buttons button { min-width: 42px; height: 35px; padding: 0 8px; border: 1px solid color-mix(in srgb, var(--accent), transparent 67%); border-radius: 11px; background: color-mix(in srgb, var(--accent), transparent 93%); color: var(--accent); cursor: pointer; font-weight: 800; }
 .duration-buttons button:hover { background: var(--accent); color: var(--accent-ink); }
-.delete-button { width: 38px; height: 38px; border: 1px solid color-mix(in srgb, var(--danger), transparent 73%); border-radius: 12px; background: color-mix(in srgb, var(--danger), transparent 94%); color: var(--danger); cursor: pointer; font-size: 22px; }
+.challenge-controls { display: flex; align-items: center; gap: 8px; }
+.challenge-score { display: grid; min-width: 60px; height: 38px; place-items: center; color: var(--accent); font-size: 15px; font-variant-numeric: tabular-nums; font-weight: 800; }
+.delete-button { display: grid; width: 38px; height: 38px; place-items: center; border: 1px solid color-mix(in srgb, var(--danger), transparent 73%); border-radius: 12px; background: color-mix(in srgb, var(--danger), transparent 94%); color: var(--danger); cursor: pointer; }
+.delete-icon { display: block; width: 20px; height: 20px; }
+.delete-icon svg { display: block; width: 100%; height: 100%; }
 .marked-icon { position: relative; display: block; width: fit-content; }
 .marked-icon b { position: absolute; right: -3px; bottom: -2px; display: grid; place-items: center; min-width: 20px; height: 20px; padding: 0 4px; border: 2px solid var(--surface); border-radius: 10px; background: var(--accent); color: var(--accent-ink); font-size: 10px; }
 
@@ -89,7 +93,8 @@
 .compact-challenge { display: grid; flex: 0 0 78px; justify-items: center; gap: 3px; padding: 8px 6px; border: 1px solid var(--line); border-radius: 17px; background: var(--surface); cursor: pointer; scroll-snap-align: start; }
 .compact-challenge.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent), transparent 94%); }
 .compact-game-icon { display: block; width: 48px; height: 48px; }
-.compact-challenge code { font-size: 11px; font-weight: 800; }
+.compact-challenge code, .compact-score { font-size: 11px; font-variant-numeric: tabular-nums; font-weight: 800; line-height: 1.2; }
+.compact-score { color: var(--accent); }
 .compact-challenge small { width: 100%; overflow: hidden; color: var(--muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .compact-challenge .marked-icon b { right: -4px; bottom: -1px; }
 
