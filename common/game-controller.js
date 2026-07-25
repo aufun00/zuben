@@ -42,7 +42,7 @@ export function createRaceClock(limitMs, readSystemMs = () => performance.now())
   return Object.freeze({ nowMs, start, pause, resume, finish });
 }
 
-export function createGameController({ limitMs, engine, initializeGame, settleSteps, onChange, readSystemMs, flowCfg = GAME_FLOW_CFG }) {
+export function createGameController({ limitMs, engine, initializeGame, applyAction, settleSteps, onChange, readSystemMs, flowCfg = GAME_FLOW_CFG }) {
   const clock = createRaceClock(limitMs, readSystemMs);
   let phase = PHASE_INTRO;
   let countdown = 0;
@@ -100,7 +100,7 @@ export function createGameController({ limitMs, engine, initializeGame, settleSt
       initializingOpening = false;
     }
     if (destroyed) return;
-    if (!engine.hasLegalMove()) {
+    if (!hasLegalMove()) {
       finish("no_moves");
     } else if (hidden) {
       phase = PHASE_PAUSED;
@@ -111,7 +111,7 @@ export function createGameController({ limitMs, engine, initializeGame, settleSt
   }
 
   function beginPreparation(isStart) {
-    if (engine.hasLegalMove() === false) {
+    if (!hasLegalMove()) {
       finish("no_moves");
       return;
     }
@@ -175,7 +175,10 @@ export function createGameController({ limitMs, engine, initializeGame, settleSt
 
   async function processInput(input) {
     if (phase !== PHASE_RUNNING || input.timeMs >= limitMs) return false;
-    const outcome = engine.applySwap(input.action.from, input.action.to, limitMs - input.timeMs);
+    const remainMs = limitMs - input.timeMs;
+    const outcome = applyAction
+      ? applyAction(input.action, remainMs, input.timeMs)
+      : engine.applySwap(input.action.from, input.action.to, remainMs);
     if (!outcome.accepted) return false;
 
     phase = PHASE_SETTLING;
@@ -184,9 +187,11 @@ export function createGameController({ limitMs, engine, initializeGame, settleSt
       await settleSteps(outcome.steps);
     } finally {
       if (destroyed || phase === PHASE_ENDED) return true;
-      if (deadlinePending || clock.nowMs() >= limitMs) {
+      if (outcome.endReason) {
+        finish(outcome.endReason);
+      } else if (deadlinePending || clock.nowMs() >= limitMs) {
         finish("deadline");
-      } else if (!engine.hasLegalMove()) {
+      } else if (!hasLegalMove()) {
         finish("no_moves");
       } else if (hidden) {
         clock.pause();
@@ -238,6 +243,10 @@ export function createGameController({ limitMs, engine, initializeGame, settleSt
     notify();
   }
 
+  function hasLegalMove() {
+    return typeof engine.hasLegalMove !== "function" || engine.hasLegalMove() !== false;
+  }
+
   function clearPrepareTimer() {
     if (prepareTimer !== null) clearTimeout(prepareTimer);
     prepareTimer = null;
@@ -249,7 +258,7 @@ export function createGameController({ limitMs, engine, initializeGame, settleSt
     clearInterval(pumpTimer);
   }
 
-  if (initializeGame || engine.hasLegalMove()) notify();
+  if (initializeGame || hasLegalMove()) notify();
   else finish("no_moves");
   return Object.freeze({ command, submitAction, handleVisibility, snapshot, destroy });
 }

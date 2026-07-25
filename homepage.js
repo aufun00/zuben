@@ -86,12 +86,12 @@ function renderShareArea(state) {
         <div class="code-line"><code>${selected.iCode}</code><time>${escapeHTML(shortTime)}</time></div>
         <input class="memo-input" aria-label="${state.strings.memo}" value="${escapeHTML(selected.memo)}">
       </div>
-      <button class="share-launch" type="button"><span>↗</span><strong>${state.strings.share}</strong></button>
+      <button class="share-launch" type="button" aria-label="${state.strings.share}">${iconMarkup("share", "share-icon")}<strong>${state.strings.share}</strong></button>
     </div>
   `);
 
   const qrButton = section.querySelector(".qr-box");
-  qrButton.setAttribute("aria-label", `${state.strings.copy}: ${url}`);
+  qrButton.setAttribute("aria-label", state.strings.enlargeChallengeQr);
   qrButton.append(createQrSvg(url, state.strings.challengeQr));
 
   const memo = section.querySelector(".memo-input");
@@ -103,8 +103,37 @@ function renderShareArea(state) {
     state.rerender();
   });
   section.querySelector(".share-launch").addEventListener("click", () => shareChallenge(selected, url, state));
-  qrButton.addEventListener("click", () => copyText(url, state.strings));
+  qrButton.addEventListener("click", () => openChallengeQr(url, state));
   return section;
+}
+
+function openChallengeQr(url, state) {
+  const backdrop = document.createElement("div");
+  backdrop.className = "modal-backdrop challenge-qr-backdrop";
+  backdrop.innerHTML = `
+    <section class="modal-card challenge-qr-dialog" role="dialog" aria-modal="true" aria-labelledby="challenge-qr-title">
+      <h2 id="challenge-qr-title">${state.strings.challengeQrTitle}</h2>
+      <div class="challenge-qr-large"></div>
+      <div class="modal-actions challenge-qr-actions">
+        <button class="action-button cancel" type="button">${state.strings.cancel}</button>
+        <button class="action-button" data-copy-link type="button">${state.strings.copyLink}</button>
+        <a class="action-button primary" data-open-game href="${escapeHTML(url)}" target="_blank" rel="noopener">${state.strings.openGameNewTab}</a>
+      </div>
+    </section>
+  `;
+  backdrop.querySelector(".challenge-qr-large").append(createQrSvg(url, state.strings.challengeQr));
+  const controller = new AbortController();
+  const close = () => {
+    controller.abort();
+    backdrop.remove();
+    document.querySelector(".qr-box")?.focus();
+  };
+  backdrop.querySelector(".cancel").addEventListener("click", close, { signal: controller.signal });
+  backdrop.querySelector("[data-copy-link]").addEventListener("click", () => copyText(url, state.strings), { signal: controller.signal });
+  backdrop.addEventListener("click", (event) => { if (event.target === backdrop) close(); }, { signal: controller.signal });
+  document.addEventListener("keydown", (event) => { if (event.key === "Escape") close(); }, { signal: controller.signal });
+  document.body.append(backdrop);
+  backdrop.querySelector("[data-open-game]").focus();
 }
 
 function renderChallengeList(state, compact) {

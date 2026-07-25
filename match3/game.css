@@ -21,20 +21,5 @@
 .match3-rules ol { display: grid; gap: 8px; margin: 16px 0 0; padding-left: 22px; color: var(--muted); text-align: left; line-height: 1.45; }
 .match3-overlay { position: absolute; z-index: 5; inset: 0; display: grid; place-items: center; padding: 18px; overflow: auto; border-radius: inherit; background: #10121af2; text-align: center; }
 .match3-overlay[hidden] { display: none; }
-.result-card { display: grid; width: min(100%, 440px); gap: 10px; padding: clamp(20px, 6vw, 34px); border: 1px solid var(--line); border-radius: 26px; background: var(--surface); box-shadow: 0 22px 70px #000a; }
-.result-outcome-icon { color: var(--accent); font-size: 48px; line-height: 1; text-shadow: 0 0 20px color-mix(in srgb, var(--accent), transparent 40%); }
-.game-result-overlay[data-outcome="lose"] .result-outcome-icon { color: var(--danger); }
-.game-result-overlay[data-outcome="tie"] .result-outcome-icon { color: var(--even); }
-.result-card h1 { margin: 0; font-size: clamp(25px, 7vw, 38px); }
-.result-reason { margin: -3px 0 4px; color: var(--muted); }
-.result-score { min-width: 7ch; color: var(--accent); font-size: clamp(38px, 12vw, 64px); font-variant-numeric: tabular-nums; line-height: 1.1; }
-.result-action { min-height: 48px; padding: 10px 15px; border: 1px solid var(--line); border-radius: 15px; background: var(--surface-2); cursor: pointer; color: var(--text); font-weight: 800; }
-.result-action.primary { margin-top: 8px; border-color: transparent; background: var(--accent); color: #09251c; }
-.result-action:disabled { cursor: not-allowed; opacity: .5; }
-.result-secondary-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
-.result-share-sheet { text-align: center; }
-.result-qr { width: min(62vw, 230px); margin: 0 auto; padding: 10px; border-radius: 17px; background: #fff; }
-.result-qr svg { display: block; width: 100%; height: auto; }
-.result-share-copy { overflow-wrap: anywhere; color: var(--muted); line-height: 1.45; }
 @media (max-width: 380px) { .match3-stage { padding: 10px; } .match3-board { gap: 3px; padding: 7px; border-radius: 17px; } }
 @media (prefers-reduced-motion: reduce) { .match3-tile { transition: none; } }

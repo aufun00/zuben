@@ -35,8 +35,14 @@
 .qr-box, .share-launch { aspect-ratio: 1; border: 1px solid var(--line); border-radius: 16px; background: var(--surface-2); cursor: pointer; }
 .qr-box { display: grid; place-content: center; padding: 7px; overflow: hidden; }
 .qr-box svg { display: block; width: 100%; height: 100%; border-radius: 4px; }
+.challenge-qr-dialog { text-align: center; }
+.challenge-qr-large { width: min(72vw, 340px); margin: 0 auto; padding: 12px; border-radius: 20px; background: #fff; }
+.challenge-qr-large svg { display: block; width: 100%; height: auto; }
+.challenge-qr-actions { display: grid; grid-template-columns: auto auto minmax(0, 1fr); }
+.challenge-qr-actions .action-button { display: grid; place-items: center; text-decoration: none; }
 .share-launch { display: grid; place-content: center; gap: 4px; color: var(--accent); }
-.share-launch span { font-size: 29px; }
+.share-icon { display: block; width: 31px; height: 31px; }
+.share-icon svg { display: block; width: 100%; height: 100%; }
 .share-launch strong { font-size: 12px; }
 .share-details { display: grid; align-content: center; min-width: 0; gap: 10px; }
 .code-line { display: grid; gap: 4px; }
@@ -88,4 +94,5 @@
   .game-icon { width: 50px; height: 50px; }
   .duration-buttons { max-width: 96px; }
   .duration-buttons button { min-width: 38px; }
+  .challenge-qr-actions { grid-template-columns: 1fr; }
 }

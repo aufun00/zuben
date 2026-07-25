@@ -33,7 +33,7 @@ export function createGameResultView({ overlay, gameIdx, game, parsed, result, g
   challengeButton.addEventListener("click", shareNewChallenge);
   overlay.querySelector("[data-other-games]").addEventListener("click", () => {
     history.pushState(null, "", location.pathname);
-    dispatchEvent(new Event("fp:navigate-home"));
+    dispatchEvent(new Event("zuben:navigate-home"));
   });
   paint();
 
@@ -52,7 +52,7 @@ export function createGameResultView({ overlay, gameIdx, game, parsed, result, g
     overlay.dataset.outcome = outcome;
     overlay.querySelector("[data-result-icon]").textContent = outcome === "win" ? "◆" : outcome === "lose" ? "◇" : "═";
     overlay.querySelector("[data-result-outcome]").textContent = activeStrings[`result${capitalize(outcome)}`];
-    overlay.querySelector("[data-result-reason]").textContent = frozenResult.reason === "no_moves" ? activeLocalized.noMoves : activeLocalized.timeUp;
+    overlay.querySelector("[data-result-reason]").textContent = activeLocalized.resultReasons?.[frozenResult.reason] ?? activeLocalized.timeUp ?? frozenResult.reason;
     overlay.querySelector("[data-result-score]").textContent = String(frozenResult.score);
     scoreButton.textContent = activeStrings.shareMyScore;
     challengeButton.textContent = activeStrings.startNewChallenge;

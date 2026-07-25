@@ -24,7 +24,7 @@ export function readResultScore(params, gameID, iCode) {
 
 function resultMask(gameID, iCode) {
   let hash = 0x811c9dc5;
-  for (const character of `fp:r:${gameID}:${iCode}`) {
+  for (const character of `zuben:r:${gameID}:${iCode}`) {
     hash ^= character.charCodeAt(0);
     hash = Math.imul(hash, 0x01000193);
   }

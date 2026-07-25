@@ -1,8 +1,9 @@
 const KEYS = {
-  nickname: "fpcodex.nickname",
-  mode: "fpcodex.homepageMode",
-  language: "fpcodex.language",
-  challenges: "fpcodex.challengeList",
+  nickname: "zuben.nickname",
+  mode: "zuben.homepageMode",
+  language: "zuben.language",
+  challenges: "zuben.challengeList",
+  readedVer: "zuben.readedVer",
 };
 
 export function getPreference(key, fallback) {

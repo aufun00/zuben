@@ -19,6 +19,7 @@ export function renderHeader(container, { version, onModeChange, onLanguageChang
   document.documentElement.lang = locale.htmlLang;
   let mode = getMode();
   let nickname = getPreference("nickname", strings.nickname);
+  const versionUnread = version !== "?" && getPreference("readedVer", "") !== version;
 
   const header = document.createElement("header");
   header.className = "app-header";
@@ -36,14 +37,14 @@ export function renderHeader(container, { version, onModeChange, onLanguageChang
         ${iconMarkup("language", "header-icon")}<span>${locale.code}</span>
       </button>
     </span>
-    <span class="version-label" title="${escapeHTML(strings.version)} ${escapeHTML(version)}">
-      ${iconMarkup("version", "header-icon")}<span>v${version}</span>
-    </span>
+    <button class="version-label" type="button" data-unread="${versionUnread}" title="${escapeHTML(strings.version)} ${escapeHTML(version)}" aria-label="${escapeHTML(strings.version)} ${escapeHTML(version)}">
+      ${iconMarkup(versionUnread ? "unread" : "version", "header-icon")}<span>v${version}</span>
+    </button>
   `;
 
   header.querySelector(".brand-button").addEventListener("click", () => {
     history.pushState(null, "", location.pathname);
-    dispatchEvent(new Event("fp:navigate-home"));
+    dispatchEvent(new Event("zuben:navigate-home"));
   });
   const nicknameButton = header.querySelector(".nickname-button");
   nicknameButton.addEventListener("click", () => editNickname(strings, nickname, (nextNickname) => {
@@ -63,6 +64,21 @@ export function renderHeader(container, { version, onModeChange, onLanguageChang
     onModeChange?.(next);
   });
   const languageButton = header.querySelector(".language-button");
+  const versionButton = header.querySelector(".version-label");
+  versionButton.addEventListener("click", async () => {
+    if (versionButton.disabled) return;
+    versionButton.disabled = true;
+    try {
+      const displayed = await openVersionInfo(versionButton);
+      if (displayed && version !== "?") {
+        setPreference("readedVer", version);
+        versionButton.dataset.unread = "false";
+        versionButton.querySelector("[data-icon]").outerHTML = iconMarkup("version", "header-icon");
+      }
+    } finally {
+      versionButton.disabled = false;
+    }
+  });
   languageButton.addEventListener("click", () => openLanguageMenu({
     header,
     button: languageButton,
@@ -83,7 +99,8 @@ export function renderHeader(container, { version, onModeChange, onLanguageChang
       modeButton.querySelector("span:last-child").textContent = modeLabel;
       modeButton.setAttribute("aria-label", modeLabel);
       modeButton.title = modeLabel;
-      header.querySelector(".version-label").title = `${strings.version} ${version}`;
+      versionButton.title = `${strings.version} ${version}`;
+      versionButton.setAttribute("aria-label", `${strings.version} ${version}`);
       onLanguageChange?.(nextLocale.id);
     },
   }));
@@ -96,6 +113,74 @@ export function renderHeader(container, { version, onModeChange, onLanguageChang
   container.append(header);
   return { language, strings, mode, nickname };
 }
+
+async function openVersionInfo(versionButton) {
+  if (document.querySelector(".version-backdrop")) return false;
+  try {
+    const response = await fetch(new URL("../version.json", import.meta.url));
+    if (!response.ok) throw new Error(`version.json returned ${response.status}`);
+    const value = await response.json();
+    const backdrop = document.createElement("div");
+    backdrop.className = "modal-backdrop version-backdrop";
+    backdrop.innerHTML = `
+      <section class="modal-card version-dialog" role="dialog" aria-modal="true" aria-label="Version information">
+        <button class="version-close" type="button" aria-label="Close">×</button>
+        <div class="version-json"></div>
+      </section>
+    `;
+    backdrop.querySelector(".version-json").append(formatVersionValue(value));
+    const controller = new AbortController();
+    const close = () => {
+      controller.abort();
+      backdrop.remove();
+      versionButton.focus();
+    };
+    backdrop.querySelector(".version-close").addEventListener("click", close, { signal: controller.signal });
+    backdrop.addEventListener("click", (event) => { if (event.target === backdrop) close(); }, { signal: controller.signal });
+    document.addEventListener("keydown", (event) => { if (event.key === "Escape") close(); }, { signal: controller.signal });
+    document.body.append(backdrop);
+    backdrop.querySelector(".version-close").focus();
+    return true;
+  } catch (error) {
+    console.error("Could not display version.json", error);
+    return false;
+  }
+}
+
+function formatVersionValue(value, depth = 0) {
+  if (Array.isArray(value)) {
+    const list = document.createElement("ul");
+    list.className = "version-array";
+    for (const item of value) {
+      const entry = document.createElement("li");
+      if (isScalar(item)) entry.textContent = displayScalar(item);
+      else entry.append(formatVersionValue(item, depth + 1));
+      list.append(entry);
+    }
+    return list;
+  }
+  if (value && typeof value === "object") {
+    const group = document.createElement("div");
+    group.className = `version-object depth-${Math.min(depth, 3)}`;
+    for (const [key, item] of Object.entries(value)) {
+      const field = document.createElement("section");
+      field.className = "version-field";
+      const label = document.createElement(depth === 0 ? "h2" : depth === 1 ? "h3" : "strong");
+      label.className = "version-key";
+      label.textContent = key;
+      field.append(label, formatVersionValue(item, depth + 1));
+      group.append(field);
+    }
+    return group;
+  }
+  const text = document.createElement("p");
+  text.className = "version-value";
+  text.textContent = displayScalar(value);
+  return text;
+}
+
+function isScalar(value) { return value === null || typeof value !== "object"; }
+function displayScalar(value) { return value === null ? "null" : String(value); }
 
 function openLanguageMenu({ header, button, language, strings, onSelect }) {
   const picker = header.querySelector(".language-picker");

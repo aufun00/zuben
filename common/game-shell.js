@@ -11,10 +11,10 @@ export function renderGameShell(mount, { game, gameIdx, params, version, gameStr
   let languageBinding = null;
   const dispose = () => {
     cleanup();
-    removeEventListener("fp:navigate-home", dispose);
+    removeEventListener("zuben:navigate-home", dispose);
     removeEventListener("popstate", dispose);
   };
-  addEventListener("fp:navigate-home", dispose, { once: true });
+  addEventListener("zuben:navigate-home", dispose, { once: true });
   addEventListener("popstate", dispose, { once: true });
   const { language, strings } = renderHeader(mount, {
     version,

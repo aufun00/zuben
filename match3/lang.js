@@ -7,6 +7,7 @@ export const GAME_LANG = {
     operationSwap: "再点击相邻方块完成交换；不能形成匹配时会自动换回。",
     operationScore: "开局连消也计分；连锁越深、交换时剩余时间越多，得分越高。",
     board: "三消棋盘", tile: "方块", noMoves: "棋盘已无解", timeUp: "时间到", finalScore: "最终成绩",
+    resultReasons: { no_moves: "棋盘已无解", deadline: "时间到" },
   },
   en: {
     name: "Match Three", description: "Make as many valid matches as possible before time runs out.",
@@ -16,5 +17,6 @@ export const GAME_LANG = {
     operationSwap: "Then tap an adjacent tile to swap. A swap that makes no match is reversed.",
     operationScore: "Opening clears also score. Deeper chains and more remaining time award more points.",
     board: "Match three board", tile: "Tile", noMoves: "No moves remain", timeUp: "Time is up", finalScore: "Final score",
+    resultReasons: { no_moves: "No moves remain", deadline: "Time is up" },
   },
 };
