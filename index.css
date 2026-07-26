@@ -194,7 +194,10 @@ button { color: inherit; }
   inset: 0;
   display: grid;
   place-items: center;
+  align-items: safe center;
   padding: 20px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background: var(--backdrop);
 }
 
@@ -247,7 +250,5 @@ button { color: inherit; }
 }
 
 @media (max-width: 480px) {
-  .mode-button span:last-child { display: none; }
-  .mode-button { width: 40px; padding-inline: 0; }
   .version-label .header-icon { display: none; }
 }

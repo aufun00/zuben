@@ -1,10 +1,17 @@
 let reloadingForWorkerUpdate = false;
+let deferredFirstController = null;
+let publishFirstControllerVersion = (worker) => { deferredFirstController = worker; };
 if ("serviceWorker" in navigator) {
   const hadServiceWorkerController = Boolean(navigator.serviceWorker.controller);
   navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (!hadServiceWorkerController || reloadingForWorkerUpdate) return;
-    reloadingForWorkerUpdate = true;
-    location.reload();
+    if (hadServiceWorkerController) {
+      if (reloadingForWorkerUpdate) return;
+      reloadingForWorkerUpdate = true;
+      location.reload();
+      return;
+    }
+    const worker = navigator.serviceWorker.controller;
+    if (worker) publishFirstControllerVersion(worker);
   });
 }
 
@@ -20,6 +27,12 @@ const { disposeHomepage, renderHomepage } = homepageModule;
 const { getAppVersion, setAppVersion } = versionStateModule;
 const { closeActiveModal } = modalModule;
 const { withTimeout } = timeoutModule;
+publishFirstControllerVersion = (worker) => {
+  void requestVersion(worker).then(setAppVersion).catch((error) => {
+    console.error("Could not read Zuben version from the first Controller", error);
+  });
+};
+if (deferredFirstController) publishFirstControllerVersion(deferredFirstController);
 
 const mount = document.querySelector("#app");
 let routeGeneration = 0;
@@ -59,29 +72,35 @@ window.addEventListener("popstate", route);
 window.addEventListener("zuben:navigate-home", route);
 
 void route();
-void readServiceWorkerVersion().then(setAppVersion);
+void monitorServiceWorkerVersion();
 
-async function readServiceWorkerVersion() {
-  if (!("serviceWorker" in navigator)) return "?";
+async function monitorServiceWorkerVersion() {
+  if (!("serviceWorker" in navigator)) return;
+  const eventualVersion = readVersionFromWorker();
+  let settled = false;
+  void eventualVersion.then(
+    (version) => { settled = true; setAppVersion(version); },
+    (error) => { settled = true; console.error("Could not read Zuben version from Service Worker", error); },
+  );
   try {
-    return await withTimeout(readVersionFromWorker(), 5000, "Service Worker version flow timed out");
+    await withTimeout(eventualVersion, 5000, "Service Worker version flow timed out");
   } catch (error) {
-    console.error("Could not read Zuben version from Service Worker", error);
-    return "?";
+    if (!settled) console.error("Zuben version is not available yet", error);
+    setAppVersion("?");
   }
 }
 
 async function readVersionFromWorker() {
   const registration = await navigator.serviceWorker.register("./sw.js");
   if (registration.active && !registration.waiting && !registration.installing) {
-    try { await registration.update(); } catch {}
+    void registration.update().catch(() => {});
   }
   const worker = await getVersionWorker(registration);
   return requestVersion(worker);
 }
 
 function getVersionWorker(registration) {
-  const worker = registration.waiting ?? registration.installing ?? registration.active;
+  const worker = registration.active ?? registration.waiting ?? registration.installing;
   if (!worker) return Promise.reject(new Error("Service Worker is unavailable"));
   if (worker.state === "activated") return Promise.resolve(worker);
   return new Promise((resolve, reject) => {

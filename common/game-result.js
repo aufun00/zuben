@@ -1,8 +1,6 @@
 import { createChallengeEntry, saveChallengeOnce, updateChallengeBestScore } from "./challenges.js";
-import { getPreference } from "./storage.js";
-import { buildChallengeSharePayload, copyText, shareContent } from "./share.js";
-import { renderQr } from "./qr.js";
-import { openModal } from "./modal.js";
+import { getPreference, loadChallenges, saveChallenges } from "./storage.js";
+import { openChallengeShareDialog } from "./share-dialog.js";
 
 export function createGameResultView({ overlay, gameIdx, game, parsed, result, ghostScore, language, strings, localized }) {
   const frozenResult = Object.freeze({ score: result.score, reason: result.reason });
@@ -11,7 +9,6 @@ export function createGameResultView({ overlay, gameIdx, game, parsed, result, g
   let activeStrings = strings;
   let activeLocalized = localized;
   let resultChallenge = null;
-  let sharingChallenge = false;
 
   overlay.classList.add("game-result-overlay");
   overlay.innerHTML = `
@@ -30,10 +27,10 @@ export function createGameResultView({ overlay, gameIdx, game, parsed, result, g
 
   const scoreButton = overlay.querySelector("[data-share-score]");
   const challengeButton = overlay.querySelector("[data-new-challenge]");
-  scoreButton.addEventListener("click", openScoreShareSheet);
-  challengeButton.addEventListener("click", shareNewChallenge);
+  scoreButton.addEventListener("click", openScoreShareDialog);
+  challengeButton.addEventListener("click", openNewChallengeDialog);
   overlay.querySelector("[data-other-games]").addEventListener("click", () => {
-    history.pushState(null, "", location.pathname);
+    history.pushState({ zubenHomeTab: "games" }, "", location.pathname);
     dispatchEvent(new Event("zuben:navigate-home"));
   });
   paint();
@@ -60,82 +57,48 @@ export function createGameResultView({ overlay, gameIdx, game, parsed, result, g
     overlay.querySelector("[data-other-games]").textContent = activeStrings.otherGames;
   }
 
-  function openScoreShareSheet() {
-    const { text, url } = buildChallengeSharePayload({
-      nickname: currentNickname(),
-      score: frozenResult.score,
+  function openScoreShareDialog() {
+    openChallengeShareDialog({
+      challenge: { gameID: game.gameID, iCode: parsed.code, score: frozenResult.score },
       gameIdx,
-      gameID: game.gameID,
       gameDisplayName: activeLocalized.name,
-      iCode: parsed.code,
+      nickname: currentNickname(),
+      language: activeLanguage,
       strings: activeStrings,
+      returnFocus: scoreButton,
     });
-    const backdrop = document.createElement("div");
-    backdrop.className = "modal-backdrop result-share-backdrop";
-    backdrop.innerHTML = `
-      <section class="modal-card result-share-sheet" role="dialog" aria-labelledby="result-share-title">
-        <h2 id="result-share-title"></h2>
-        <div class="result-qr"></div>
-        <p class="result-share-copy"></p>
-        <div class="modal-actions">
-          <button class="action-button cancel" type="button"></button>
-          <button class="action-button" type="button" data-copy></button>
-          <button class="action-button primary" type="button" data-native-share></button>
-        </div>
-      </section>
-    `;
-    backdrop.querySelector("h2").textContent = activeStrings.shareMyScore;
-    backdrop.querySelector(".result-share-copy").textContent = text;
-    renderQr(backdrop.querySelector(".result-qr"), url, {
-      label: activeStrings.resultQr,
-      fallbackText: activeStrings.qrUnavailable,
-    });
-    const closeButton = backdrop.querySelector(".cancel");
-    closeButton.textContent = activeStrings.cancel;
-    backdrop.querySelector("[data-copy]").textContent = activeStrings.copy;
-    backdrop.querySelector("[data-native-share]").textContent = activeStrings.share;
-    const modal = openModal(backdrop, { initialFocus: closeButton, returnFocus: scoreButton });
-    closeButton.addEventListener("click", () => modal.close(), { signal: modal.signal });
-    backdrop.querySelector("[data-copy]").addEventListener("click", () => copyText(`${text}\n${url}`, activeStrings), { signal: modal.signal });
-    backdrop.querySelector("[data-native-share]").addEventListener("click", async (event) => {
-      const button = event.currentTarget;
-      button.disabled = true;
-      try {
-        await shareContent({ text, url, strings: activeStrings });
-      } finally {
-        button.disabled = false;
-      }
-    }, { signal: modal.signal });
   }
 
-  async function shareNewChallenge() {
-    if (sharingChallenge) return;
-    sharingChallenge = true;
-    challengeButton.disabled = true;
-    try {
-      if (!resultChallenge) {
-        resultChallenge = createChallengeEntry({
-          gameID: game.gameID,
-          durIdx: parsed.durIdx,
-          duration: game.durs[parsed.durIdx],
-          language: activeLanguage,
-        });
-        saveChallengeOnce(resultChallenge);
-      }
-      const payload = buildChallengeSharePayload({
-        nickname: currentNickname(),
-        score: resultChallenge.bestScore,
-        gameIdx,
-        gameID: resultChallenge.gameID,
-        gameDisplayName: activeLocalized.name,
-        iCode: resultChallenge.iCode,
-        strings: activeStrings,
+  function openNewChallengeDialog() {
+    if (!resultChallenge) {
+      resultChallenge = createChallengeEntry({
+        gameID: game.gameID,
+        durIdx: parsed.durIdx,
+        duration: game.durs[parsed.durIdx],
+        language: activeLanguage,
       });
-      await shareContent({ ...payload, strings: activeStrings });
-    } finally {
-      sharingChallenge = false;
-      challengeButton.disabled = false;
+      saveChallengeOnce(resultChallenge);
     }
+    openChallengeShareDialog({
+      challenge: { ...resultChallenge, score: resultChallenge.bestScore },
+      gameIdx,
+      gameDisplayName: activeLocalized.name,
+      nickname: currentNickname(),
+      language: activeLanguage,
+      strings: activeStrings,
+      returnFocus: challengeButton,
+      onMemoChange(value) {
+        const entries = loadChallenges();
+        const entry = entries.find((item) => item.gameID === resultChallenge.gameID && item.iCode === resultChallenge.iCode);
+        if (!entry) return;
+        entry.memo = value;
+        const saved = saveChallenges(entries);
+        const persisted = saved.find((item) => item.gameID === resultChallenge.gameID && item.iCode === resultChallenge.iCode);
+        if (!persisted) return;
+        resultChallenge = Object.freeze({ ...resultChallenge, memo: persisted.memo });
+        return persisted.memo;
+      },
+    });
   }
 
   function currentNickname() {

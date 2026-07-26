@@ -98,10 +98,6 @@
 .result-action.primary { margin-top: 8px; border-color: transparent; background: var(--accent); color: var(--accent-ink); }
 .result-action:disabled { cursor: not-allowed; opacity: .5; }
 .result-secondary-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
-.result-share-sheet { text-align: center; }
-.result-qr { width: min(62vw, 230px); margin: 0 auto; padding: 10px; border-radius: 17px; background: #fff; }
-.result-qr svg { display: block; width: 100%; height: auto; }
-.result-share-copy { overflow-wrap: anywhere; color: var(--muted); line-height: 1.45; }
 @media (max-width: 380px) {
   .game-page { padding: 8px; }
   .game-status { gap: 2px; padding: 7px 6px; }

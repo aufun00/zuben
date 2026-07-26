@@ -9,7 +9,6 @@ const MAX_DATE_MS = 8_640_000_000_000_000;
 
 const KEYS = {
   nickname: "zuben.nickname",
-  mode: "zuben.homepageMode",
   language: "zuben.language",
   challenges: "zuben.challengeList",
   readedVer: "zuben.readedVer",

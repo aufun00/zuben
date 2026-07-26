@@ -64,7 +64,7 @@ export function createGameController({ limitMs, engine, initializeGame, applyAct
   let lastGameSnapshot = null;
   const inputQueue = [];
 
-  const pumpTimer = setInterval(() => runSafely(pump), flowCfg.pumpIntervalMs);
+  let pumpTimer = setInterval(() => runSafely(pump), flowCfg.pumpIntervalMs);
 
   function snapshot() {
     try {
@@ -281,6 +281,7 @@ export function createGameController({ limitMs, engine, initializeGame, applyAct
   function finish(reason) {
     if (phase === PHASE_ENDED) return;
     clearPrepareTimer();
+    clearPumpTimer();
     interruptionPausePending = false;
     concealed = false;
     clock.finish();
@@ -300,6 +301,12 @@ export function createGameController({ limitMs, engine, initializeGame, applyAct
     prepareTimer = null;
   }
 
+  function clearPumpTimer() {
+    if (pumpTimer === null) return;
+    clearInterval(pumpTimer);
+    pumpTimer = null;
+  }
+
   function runSafely(callback) {
     if (destroyed || failure) return;
     try {
@@ -313,7 +320,7 @@ export function createGameController({ limitMs, engine, initializeGame, applyAct
     if (destroyed || failure) return;
     failure = reason instanceof Error ? reason : new Error(String(reason));
     clearPrepareTimer();
-    clearInterval(pumpTimer);
+    clearPumpTimer();
     try { clock.pause(); } catch {}
     phase = PHASE_ERROR;
     countdown = 0;
@@ -349,7 +356,7 @@ export function createGameController({ limitMs, engine, initializeGame, applyAct
     if (destroyed) return;
     destroyed = true;
     clearPrepareTimer();
-    clearInterval(pumpTimer);
+    clearPumpTimer();
     rejectQueuedInputs(createAbortError());
   }
 

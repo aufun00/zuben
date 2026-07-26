@@ -1,11 +1,11 @@
-const VERSION = "0.0.13";
+const VERSION = "0.0.19";
 const CACHE_NAME = `zuben-${VERSION}`;
 const NETWORK_TIMEOUT_MS = 3000;
 const CORE = [
   "./", "./index.html", "./index.js", "./index.css", "./homepage.js", "./homepage.css",
   "./lang.js", "./version.json", "./icon.svg", "./manifest.webmanifest",
   "./common/game-list.js", "./common/storage.js", "./common/version-state.js", "./common/protocol-constants.js", "./common/icode.js", "./common/rng.js", "./common/qr.js", "./common/icons.js",
-  "./common/header.js", "./common/modal.js", "./common/timeout.js", "./common/challenges.js", "./common/share.js", "./common/result-code.js", "./common/game-result.js",
+  "./common/header.js", "./common/modal.js", "./common/timeout.js", "./common/challenges.js", "./common/share.js", "./common/share-dialog.js", "./common/result-code.js", "./common/game-result.js",
   "./common/game-flow-config.js", "./common/game-controller.js", "./common/gesture-input.js", "./common/game-shell.js", "./common/game-shell.css",
   "./match3/config.js", "./match3/engine.js", "./match3/game.js", "./match3/game.css", "./match3/lang.js",
   "./stacker/config.js", "./stacker/engine.js", "./stacker/game.js", "./stacker/game.css", "./stacker/lang.js", "./stacker/mesh.js",
@@ -42,15 +42,27 @@ self.addEventListener("fetch", (event) => {
 
 async function networkFirst(request) {
   const cacheKey = request.mode === "navigate" ? "./index.html" : CORE_URLS.has(new URL(request.url).href) ? request : null;
-  const cache = cacheKey === null ? null : await caches.open(CACHE_NAME);
-  const cached = cache === null ? null : await cache.match(cacheKey);
+  let cache = null;
+  let cached = null;
+  if (cacheKey !== null) {
+    try {
+      cache = await caches.open(CACHE_NAME);
+      cached = await cache.match(cacheKey);
+    } catch (error) {
+      console.warn("Could not read the Zuben cache; continuing with the network", error);
+    }
+  }
   const controller = cached ? new AbortController() : null;
   const timeout = controller ? setTimeout(() => controller.abort(), NETWORK_TIMEOUT_MS) : null;
   try {
     const response = await fetch(request, controller ? { signal: controller.signal } : undefined);
     if (!response.ok && cached) return cached;
     if (response.ok && cache !== null) {
-      await cache.put(cacheKey, response.clone());
+      try {
+        await cache.put(cacheKey, response.clone());
+      } catch (error) {
+        console.warn("Could not update the Zuben cache; using the network response", error);
+      }
     }
     return response;
   } catch {

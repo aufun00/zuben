@@ -2,109 +2,124 @@
   width: min(100%, 720px);
   max-width: 100vw;
   margin: 0 auto;
-  padding: 18px 12px max(42px, env(safe-area-inset-bottom));
+  padding: 16px 12px max(42px, env(safe-area-inset-bottom));
 }
 
-.panel { padding: 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.home-tabs {
+  display: grid;
+  height: 50px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 17px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.home-tabs button {
+  position: relative;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 800;
+}
+.home-tabs button::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -4px;
+  width: 80%;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--accent);
+  transform: translateX(-50%) scaleX(0);
+  transition: transform 150ms ease;
+}
+.home-tabs button[aria-selected="true"] {
+  background: transparent;
+}
+.home-tabs button[aria-selected="true"]::after { transform: translateX(-50%) scaleX(1); }
+.home-tabs button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -3px; }
+.home-tab-panel { margin-top: 14px; }
 .section-title { margin: 0 0 13px; font-size: 17px; letter-spacing: -.01em; }
 
-.new-menu { display: grid; gap: 14px; padding-top: 14px; }
-.new-menu-button {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  min-height: 126px;
-  padding: 22px;
-  border: 1px solid var(--line);
-  border-radius: 26px;
-  background: linear-gradient(135deg, var(--surface), var(--surface-2));
-  text-align: left;
-  cursor: pointer;
-}
-.new-menu-button > span:last-child { min-width: 0; }
-.new-menu-button strong, .new-menu-button small { overflow-wrap: anywhere; }
-.new-menu-button:hover { border-color: var(--accent-2); transform: translateY(-1px); }
-.new-menu-button strong { display: block; margin-bottom: 7px; font-size: 20px; }
-.new-menu-button small { color: var(--muted); line-height: 1.4; }
-.menu-mark { display: grid; flex: 0 0 58px; place-items: center; height: 58px; border-radius: 18px; background: color-mix(in srgb, var(--accent), transparent 90%); color: var(--accent); font-size: 30px; }
-.menu-icon { display: block; width: 34px; height: 34px; }
-.menu-icon svg { display: block; width: 100%; height: 100%; }
-.section-nav { margin-bottom: 10px; }
-.section-nav button { width: 40px; height: 38px; border: 0; border-radius: 12px; background: var(--surface); color: var(--muted); cursor: pointer; }
-
-.share-panel { margin-bottom: 14px; }
-.share-grid { display: grid; grid-template-columns: 94px minmax(0, 1fr) 94px; gap: 11px; align-items: stretch; }
-.qr-box, .share-launch { aspect-ratio: 1; border: 1px solid var(--line); border-radius: 16px; background: var(--surface-2); cursor: pointer; }
-.qr-box { display: grid; place-content: center; padding: 7px; overflow: hidden; }
-.qr-box svg { display: block; width: 100%; height: 100%; border-radius: 4px; }
-.challenge-qr-dialog { text-align: center; }
-.challenge-qr-large { width: min(72vw, 340px); margin: 0 auto; padding: 12px; border-radius: 20px; background: #fff; }
-.challenge-qr-large svg { display: block; width: 100%; height: auto; }
-.challenge-qr-actions { display: grid; grid-template-columns: auto auto minmax(0, 1fr); }
-.challenge-qr-actions .action-button { display: grid; place-items: center; text-decoration: none; }
-.share-launch { display: grid; place-content: center; gap: 4px; color: var(--accent); }
-.share-icon { display: block; width: 31px; height: 31px; }
-.share-icon svg { display: block; width: 100%; height: 100%; }
-.share-launch strong { font-size: 12px; }
-.share-details { display: grid; align-content: center; min-width: 0; gap: 10px; }
-.code-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: stretch; gap: 8px; }
-.code-line { display: grid; min-height: 40px; align-content: center; gap: 4px; }
-.code-line code { overflow: hidden; font-size: 14px; font-weight: 800; text-overflow: ellipsis; }
-.code-line time { color: var(--muted); font-size: 11px; }
-.play-launch { display: grid; width: 40px; min-width: 40px; aspect-ratio: 1; place-items: center; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); color: var(--accent); text-decoration: none; }
-.play-launch:hover { border-color: var(--accent); }
-.play-icon { display: block; width: 24px; height: 24px; }
-.play-icon svg { display: block; width: 100%; height: 100%; }
-.memo-input { width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--text); }
-
-.challenge-section, .challenge-bar, .game-section { margin-top: 14px; }
 .challenge-list, .game-list { display: grid; gap: 10px; }
 .challenge-card, .game-card {
-  display: grid;
-  grid-template-columns: 64px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 13px;
   min-height: 86px;
-  padding: 11px;
   border: 1px solid var(--line);
   border-radius: 19px;
   background: var(--surface);
 }
-.challenge-card { cursor: pointer; }
-.challenge-card.selected { border-color: var(--accent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent), transparent 73%); }
+.challenge-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: stretch; overflow: hidden; }
+.challenge-open {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 58px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 6px 11px 11px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.challenge-open:hover, .challenge-open:focus-visible { outline: none; background: color-mix(in srgb, var(--accent), transparent 94%); }
+.challenge-card:has(.challenge-open:focus-visible) { border-color: var(--accent); }
+.game-card {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 13px;
+  padding: 11px;
+}
 .game-icon { display: block; width: 58px; height: 58px; }
-.game-icon svg, .compact-game-icon svg, .brand-mark svg { width: 100%; height: 100%; }
+.game-icon svg, .brand-mark svg { width: 100%; height: 100%; }
 .game-copy { min-width: 0; }
-.game-copy h2 { overflow: hidden; margin: 0 0 4px; font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
-.game-copy h2 time { color: var(--muted); font-size: 10px; font-weight: 500; }
-.game-copy p { display: -webkit-box; overflow: hidden; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.game-copy strong, .game-copy h2 { display: block; overflow: hidden; margin: 0 0 4px; font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
+.game-copy strong time { color: var(--muted); font-size: 10px; font-weight: 500; }
+.game-copy small, .game-copy p { display: -webkit-box; overflow: hidden; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 .duration-buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; max-width: 116px; }
 .duration-buttons button { min-width: 42px; height: 35px; padding: 0 8px; border: 1px solid color-mix(in srgb, var(--accent), transparent 67%); border-radius: 11px; background: color-mix(in srgb, var(--accent), transparent 93%); color: var(--accent); cursor: pointer; font-weight: 800; }
 .duration-buttons button:hover { background: var(--accent); color: var(--accent-ink); }
-.challenge-controls { display: flex; align-items: center; gap: 8px; }
-.challenge-score { display: grid; min-width: 60px; height: 38px; place-items: center; color: var(--accent); font-size: 15px; font-variant-numeric: tabular-nums; font-weight: 800; }
-.delete-button { display: grid; width: 38px; height: 38px; place-items: center; border: 1px solid color-mix(in srgb, var(--danger), transparent 73%); border-radius: 12px; background: color-mix(in srgb, var(--danger), transparent 94%); color: var(--danger); cursor: pointer; }
-.delete-icon { display: block; width: 20px; height: 20px; }
+.challenge-score { display: grid; min-width: 52px; height: 38px; place-items: center; color: var(--accent); font-size: 15px; font-variant-numeric: tabular-nums; font-weight: 800; }
+.delete-button { display: grid; width: 44px; min-width: 44px; margin: 0 9px 0 2px; padding: 0; place-items: center; align-self: center; aspect-ratio: 1; border: 1px solid color-mix(in srgb, var(--danger), transparent 73%); border-radius: 13px; background: color-mix(in srgb, var(--danger), transparent 94%); color: var(--danger); cursor: pointer; }
+.delete-icon { display: block; width: 21px; height: 21px; }
 .delete-icon svg { display: block; width: 100%; height: 100%; }
 .marked-icon { position: relative; display: block; width: fit-content; }
 .marked-icon b { position: absolute; right: -3px; bottom: -2px; display: grid; place-items: center; min-width: 20px; height: 20px; padding: 0 4px; border: 2px solid var(--surface); border-radius: 10px; background: var(--accent); color: var(--accent-ink); font-size: 10px; }
+.empty-state { display: grid; justify-items: center; gap: 12px; }
+.empty-state p { margin: 0; }
 
-.challenge-strip { display: flex; gap: 9px; overflow-x: auto; padding: 3px 2px 10px; scrollbar-width: thin; scroll-snap-type: x proximity; }
-.compact-challenge { display: grid; flex: 0 0 78px; justify-items: center; gap: 3px; padding: 8px 6px; border: 1px solid var(--line); border-radius: 17px; background: var(--surface); cursor: pointer; scroll-snap-align: start; }
-.compact-challenge.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent), transparent 94%); }
-.compact-game-icon { display: block; width: 48px; height: 48px; }
-.compact-challenge code, .compact-score { font-size: 11px; font-variant-numeric: tabular-nums; font-weight: 800; line-height: 1.2; }
-.compact-score { color: var(--accent); }
-.compact-challenge small { width: 100%; overflow: hidden; color: var(--muted); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
-.compact-challenge .marked-icon b { right: -4px; bottom: -1px; }
+.challenge-share-dialog { position: relative; width: min(100%, 420px); padding: 18px; text-align: center; }
+.challenge-share-dialog h2 { margin: 0 34px 14px; }
+.share-dialog-close { position: absolute; top: 11px; right: 11px; display: grid; width: 34px; height: 34px; padding: 0; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: var(--surface-2); color: var(--text); cursor: pointer; font-size: 23px; line-height: 1; }
+.share-dialog-qr { width: min(62vw, 224px); margin: 0 auto; padding: 10px; border-radius: 18px; background: #fff; }
+.share-dialog-qr svg { display: block; width: 100%; height: auto; }
+.share-dialog-identity { display: grid; justify-items: center; gap: 7px; margin-top: 13px; }
+.share-dialog-identity time { color: var(--muted); font-size: 12px; }
+.share-dialog-copy { margin: 0; overflow-wrap: anywhere; color: var(--text); font-size: clamp(17px, 4.8vw, 18px); font-weight: 600; line-height: 1.35; text-wrap: balance; }
+.share-dialog-memo { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 11px; background: var(--bg); color: var(--text); }
+.share-dialog-actions { display: grid; grid-template-columns: 1fr 48px 1fr; gap: 8px; margin-top: 14px; }
+.share-dialog-actions .action-button { display: flex; min-width: 0; padding-inline: 8px; align-items: center; justify-content: center; gap: 7px; text-decoration: none; }
+.share-dialog-button-icon { display: block; flex: 0 0 20px; width: 20px; height: 20px; color: currentColor; }
+.share-dialog-button-icon svg { display: block; width: 100%; height: 100%; }
+.share-dialog-action-icon { display: block; width: 24px; height: 24px; color: var(--accent); }
+.share-dialog-action-icon svg { display: block; width: 100%; height: 100%; }
 
 .toast { position: fixed; z-index: 200; left: 50%; bottom: max(24px, env(safe-area-inset-bottom)); transform: translateX(-50%); padding: 10px 16px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-2); box-shadow: 0 10px 30px #0007; }
 
-@media (max-width: 420px) {
-  .share-grid { grid-template-columns: 78px minmax(0, 1fr) 78px; gap: 8px; }
-  .game-card, .challenge-card { grid-template-columns: 54px minmax(0, 1fr) auto; gap: 9px; }
+@media (max-width: 370px) {
+  .homepage { padding-inline: 10px; }
+  .challenge-open { grid-template-columns: 50px minmax(0, 1fr) auto; gap: 8px; padding-left: 9px; }
+  .game-card { grid-template-columns: 54px minmax(0, 1fr) auto; gap: 8px; padding: 9px; }
   .game-icon { width: 50px; height: 50px; }
-  .duration-buttons { max-width: 96px; }
+  .challenge-score { min-width: 42px; }
+  .delete-button { width: 40px; min-width: 40px; margin-right: 7px; }
+  .duration-buttons { max-width: 92px; }
   .duration-buttons button { min-width: 38px; }
-  .challenge-qr-actions { grid-template-columns: 1fr; }
+  .challenge-share-backdrop { padding: 12px; }
+  .challenge-share-dialog { padding: 16px; }
+  .share-dialog-qr { width: min(60vw, 208px); }
 }

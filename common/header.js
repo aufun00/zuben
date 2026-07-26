@@ -10,17 +10,12 @@ export function getLanguage() {
   return LOCALES.some((locale) => locale.id === stored) && LANG[stored] ? stored : fallback;
 }
 
-export function getMode() {
-  return getPreference("mode", "new") === "pro" ? "pro" : "new";
-}
-
-export function renderHeader(container, { version, onModeChange, onLanguageChange }) {
+export function renderHeader(container, { version, onLanguageChange }) {
   let activeVersion = getAppVersion();
   let language = getLanguage();
   let strings = LANG[language];
   let locale = LOCALES.find((item) => item.id === language) ?? LOCALES[0];
   document.documentElement.lang = locale.htmlLang;
-  let mode = getMode();
   let nickname = getPreference("nickname", strings.nickname);
   const versionUnread = activeVersion !== "?" && getPreference("readedVer", "") !== activeVersion;
 
@@ -32,9 +27,6 @@ export function renderHeader(container, { version, onModeChange, onLanguageChang
       ${iconMarkup("user", "header-icon")}<span>${escapeHTML(nickname)}</span>
     </button>
     <span class="header-spacer"></span>
-    <button class="header-button mode-button" type="button" aria-label="${mode === "new" ? strings.modeNew : strings.modePro}" title="${mode === "new" ? strings.modeNew : strings.modePro}">
-      ${iconMarkup(mode === "new" ? "mode-new" : "mode-pro", "header-icon")}<span>${mode === "new" ? strings.modeNew : strings.modePro}</span>
-    </button>
     <span class="language-picker">
       <button class="header-button language-button" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="${escapeHTML(strings.selectLanguage)}">
         ${iconMarkup("language", "header-icon")}<span>${locale.code}</span>
@@ -55,17 +47,6 @@ export function renderHeader(container, { version, onModeChange, onLanguageChang
     nicknameButton.querySelector("span:last-child").textContent = nickname;
     nicknameButton.title = nickname;
   }));
-  const modeButton = header.querySelector(".mode-button");
-  modeButton.addEventListener("click", () => {
-    const next = mode === "new" ? "pro" : "new";
-    mode = next;
-    setPreference("mode", next);
-    const label = next === "new" ? strings.modeNew : strings.modePro;
-    modeButton.innerHTML = `${iconMarkup(next === "new" ? "mode-new" : "mode-pro", "header-icon")}<span>${label}</span>`;
-    modeButton.setAttribute("aria-label", label);
-    modeButton.title = label;
-    onModeChange?.(next);
-  });
   const languageButton = header.querySelector(".language-button");
   const versionButton = header.querySelector(".version-label");
   versionButton.addEventListener("click", async () => {
@@ -98,10 +79,6 @@ export function renderHeader(container, { version, onModeChange, onLanguageChang
       const brandButton = header.querySelector(".brand-button");
       brandButton.setAttribute("aria-label", strings.home);
       brandButton.title = strings.home;
-      const modeLabel = mode === "new" ? strings.modeNew : strings.modePro;
-      modeButton.querySelector("span:last-child").textContent = modeLabel;
-      modeButton.setAttribute("aria-label", modeLabel);
-      modeButton.title = modeLabel;
       paintVersion(activeVersion);
       if (storageWarning) storageWarning.textContent = strings.storageUnavailable;
       onLanguageChange?.(nextLocale.id);
@@ -142,7 +119,7 @@ export function renderHeader(container, { version, onModeChange, onLanguageChang
     unsubscribeVersion();
     storageWarning?.remove();
   };
-  return { language, strings, mode, nickname, cleanup };
+  return { language, strings, nickname, cleanup };
 }
 
 async function openVersionInfo(versionButton, strings) {

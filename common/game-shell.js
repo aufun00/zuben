@@ -21,7 +21,6 @@ export function renderGameShell(mount, { game, gameIdx, params, version, gameStr
   addEventListener("popstate", dispose, { once: true });
   const headerBinding = renderHeader(mount, {
     version,
-    onModeChange: () => {},
     onLanguageChange: (nextLanguage) => languageBinding?.(nextLanguage),
   });
   const { language, strings } = headerBinding;

@@ -1,6 +1,6 @@
 let activeModal = null;
 
-export function openModal(backdrop, { initialFocus, returnFocus = document.activeElement, closeOnBackdrop = true } = {}) {
+export function openModal(backdrop, { initialFocus, returnFocus = document.activeElement, closeOnBackdrop = true, onBeforeClose } = {}) {
   closeActiveModal({ restoreFocus: false });
   const dialog = backdrop.querySelector('[role="dialog"]');
   if (!dialog) throw new Error("Modal backdrop must contain a dialog");
@@ -11,6 +11,11 @@ export function openModal(backdrop, { initialFocus, returnFocus = document.activ
   const close = ({ restoreFocus = true } = {}) => {
     if (closed) return;
     closed = true;
+    try {
+      onBeforeClose?.();
+    } catch (error) {
+      console.error("Modal close hook failed", error);
+    }
     controller.abort();
     backdrop.remove();
     if (activeModal?.backdrop === backdrop) activeModal = null;
