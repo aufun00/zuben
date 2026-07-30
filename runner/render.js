@@ -22,7 +22,7 @@ export function createRunnerRenderer({ gameZone, road, objects, runtime, perform
     node.setAttribute("y", "-50");
     node.setAttribute("width", "100");
     node.setAttribute("height", "100");
-    node.hidden = true;
+    node.setAttribute("visibility", "hidden");
     objectLayer.append(node);
     return node;
   });
@@ -101,13 +101,16 @@ export function createRunnerRenderer({ gameZone, road, objects, runtime, perform
       const node = pool[index];
       const item = visibleObjects[index];
       if (!item) {
-        node.hidden = true;
+        node.setAttribute("visibility", "hidden");
         continue;
       }
       const symbolID = SYMBOL_IDS[objects[item.key].svg];
       const position = project(item.lane, item.relative);
-      node.hidden = false;
-      node.setAttribute("href", `#${symbolID}`);
+      node.setAttribute("visibility", "visible");
+      if (node.dataset.runnerObject !== item.key) {
+        node.dataset.runnerObject = item.key;
+        node.setAttribute("href", `#${symbolID}`);
+      }
       node.setAttribute("transform", `translate(${position.x} ${position.y}) scale(${position.scale})`);
     }
   }

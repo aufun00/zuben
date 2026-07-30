@@ -7,7 +7,7 @@
 .runner-edge { fill: none; stroke: #f3d26a; stroke-width: 8; }
 .runner-lane-line { fill: none; stroke: #dce5f7; stroke-width: 5; stroke-dasharray: 22 25; opacity: .72; }
 .runner-road-object { filter: drop-shadow(0 8px 8px #0008); }
-.runner-road-object[hidden] { display: none; }
+.runner-road-object[data-runner-object="acceleration"], .runner-road-object[data-runner-object="deceleration"] { filter: none; }
 .runner-motorcycle { filter: drop-shadow(0 12px 12px #000b); }
 .runner-speed { position: absolute; top: max(18px, env(safe-area-inset-top)); right: max(18px, env(safe-area-inset-right)); padding: 7px 10px; border: 1px solid #ffffff42; border-radius: 10px; background: #0b1124c9; color: #f5f8ff; font-size: 18px; font-weight: 900; font-variant-numeric: tabular-nums; }
 .runner-cover { position: absolute; z-index: 4; inset: 0; display: grid; padding: 18px; place-items: center; border-radius: inherit; background: var(--bg); }
