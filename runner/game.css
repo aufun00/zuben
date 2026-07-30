@@ -1,0 +1,24 @@
+.runner-zone { min-height: min(690px, calc(100dvh - 142px)); padding: 0; background: #10172a; }
+.runner-playfield { position: absolute; inset: 0; display: grid; overflow: hidden; border-radius: inherit; place-items: center; }
+.runner-playfield:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: -5px; }
+.runner-scene { width: 100%; height: 100%; min-height: 540px; }
+.runner-sky { fill: #17233f; }
+.runner-road { fill: #30384a; }
+.runner-edge { fill: none; stroke: #f3d26a; stroke-width: 8; }
+.runner-lane-line { fill: none; stroke: #dce5f7; stroke-width: 5; stroke-dasharray: 22 25; opacity: .72; }
+.runner-road-object { filter: drop-shadow(0 8px 8px #0008); }
+.runner-road-object[hidden] { display: none; }
+.runner-motorcycle { filter: drop-shadow(0 12px 12px #000b); }
+.runner-speed { position: absolute; top: max(18px, env(safe-area-inset-top)); right: max(18px, env(safe-area-inset-right)); padding: 7px 10px; border: 1px solid #ffffff42; border-radius: 10px; background: #0b1124c9; color: #f5f8ff; font-size: 18px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.runner-cover { position: absolute; z-index: 4; inset: 0; display: grid; padding: 18px; place-items: center; border-radius: inherit; background: var(--bg); }
+.runner-cover[hidden] { display: none; }
+.runner-rules { width: min(100%, 470px); margin: 0; box-shadow: 0 18px 60px #000b; }
+.runner-rules h1 { margin: 0 0 12px; color: var(--accent); font-size: 22px; }
+.runner-rules > p { margin: 0; color: var(--text); }
+.runner-rules ol { display: grid; gap: 8px; margin: 16px 0 0; padding-left: 22px; color: var(--muted); text-align: left; line-height: 1.45; }
+.runner-overlay { position: absolute; z-index: 6; inset: 0; overflow: auto; border-radius: inherit; background: var(--game-overlay-bg); }
+.runner-overlay[hidden] { display: none; }
+.runner-zone .countdown { z-index: 5; }
+.runner-zone .performance-meter { position: absolute; }
+@media (max-width: 380px) { .runner-cover { padding: 10px; } .runner-speed { top: 12px; right: 12px; font-size: 16px; } }
+@media (prefers-reduced-motion: reduce) { .runner-motorcycle { transition: none; } }

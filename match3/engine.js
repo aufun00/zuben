@@ -8,6 +8,7 @@ export function createMatch3Engine(seed, limitMs) {
   const { width, height, colorCount, bagCopiesPerColor } = MATCH3_BOARD_CFG;
   const rng = createLogicRng(seed);
   const board = new Int8Array(width * height);
+  const refilled = new Uint8Array(width * height);
   let bag = [];
   let bagIndex = 0;
   let score = 0;
@@ -44,21 +45,42 @@ export function createMatch3Engine(seed, limitMs) {
     if (initialized) return { initialized: false, steps: [], snapshot: getSnapshot() };
     initialized = true;
     const steps = [];
-    resolveMatches(limitMs, steps);
+    resolveMatches(steps, true);
     return { initialized: true, steps, snapshot: getSnapshot() };
   }
 
-  function resolveMatches(remainMs, steps) {
-    let chain = 1;
+  function resolveMatches(steps, opening = false) {
+    refilled.fill(0);
+    let layer = 1;
     let matches = findMatches(board, width, height);
     while (matches.length) {
-      const points = Math.floor(matches.length * chain * remainMs / MATCH3_SCORE_CFG.timeDivisorMs);
-      score = Math.min(MATCH3_SCORE_CFG.maxScore, score + points);
-      for (const index of matches) board[index] = EMPTY;
-      steps?.push({ kind: "clear", cells: matches, board: Array.from(board), chain, points });
+      const cascadeDepth = layer - 1;
+      const hasFill = opening || matches.some((index) => refilled[index] === 1);
+      const scoreMultiplier = opening
+        ? layer
+        : cascadeDepth === 0
+          ? 1
+          : cascadeDepth * (hasFill ? 1 : MATCH3_SCORE_CFG.noFillChainMultiplier);
+      const rawPoints = calculateMatch3Points(matches.length, scoreMultiplier);
+      const points = Math.min(rawPoints, MATCH3_SCORE_CFG.maxScore - score);
+      score += points;
+      for (const index of matches) {
+        board[index] = EMPTY;
+        refilled[index] = 0;
+      }
+      steps?.push({
+        kind: "clear",
+        cells: matches,
+        board: Array.from(board),
+        chain: layer,
+        cascadeDepth,
+        hasFill,
+        scoreMultiplier,
+        points,
+      });
       collapseAndFill();
-      steps?.push({ kind: "fall", board: Array.from(board), chain });
-      chain += 1;
+      steps?.push({ kind: "fall", board: Array.from(board), chain: layer });
+      layer += 1;
       matches = findMatches(board, width, height);
     }
   }
@@ -70,10 +92,12 @@ export function createMatch3Engine(seed, limitMs) {
         const value = board[readY * width + x];
         if (value === EMPTY) continue;
         board[writeY * width + x] = value;
+        refilled[writeY * width + x] = refilled[readY * width + x];
         writeY -= 1;
       }
       while (writeY >= 0) {
         board[writeY * width + x] = nextColor();
+        refilled[writeY * width + x] = 1;
         writeY -= 1;
       }
     }
@@ -98,7 +122,7 @@ export function createMatch3Engine(seed, limitMs) {
       return { accepted: true, steps, snapshot: getSnapshot() };
     }
 
-    resolveMatches(remainMs, steps);
+    resolveMatches(steps);
     return { accepted: true, steps, snapshot: getSnapshot() };
   }
 
@@ -111,6 +135,24 @@ export function createMatch3Engine(seed, limitMs) {
   }
 
   return Object.freeze({ initialize, applySwap, getSnapshot, hasLegalMove });
+}
+
+export function calculateMatch3Points(clearCount, multiplier = 1) {
+  if (!Number.isSafeInteger(clearCount) || clearCount < 3) {
+    throw new RangeError("clearCount must be an integer of at least 3");
+  }
+  if (!Number.isSafeInteger(multiplier) || multiplier < 1) {
+    throw new RangeError("multiplier must be a positive safe integer");
+  }
+
+  let clearScore = MATCH3_SCORE_CFG.clearScoreBase;
+  for (let count = 3; count < clearCount && clearScore < MATCH3_SCORE_CFG.maxScore; count += 1) {
+    clearScore = Math.min(MATCH3_SCORE_CFG.maxScore, clearScore * 2);
+  }
+  if (clearScore >= Math.ceil(MATCH3_SCORE_CFG.maxScore / multiplier)) {
+    return MATCH3_SCORE_CFG.maxScore;
+  }
+  return clearScore * multiplier;
 }
 
 export function findMatches(board, width, height) {

@@ -15,7 +15,7 @@ import { createMatch3Engine } from "./engine.js";
 import { MATCH3_ANIMATION_CFG, MATCH3_BOARD_CFG, MATCH3_FLOW_CFG } from "./config.js";
 import { GAME_LANG } from "./lang.js";
 import { createGameResultView } from "../common/game-result.js";
-import { bindGestureInput } from "../common/gesture-input.js";
+import { bindGameInput } from "../common/gesture-input.js";
 
 ensureStylesheet();
 
@@ -23,11 +23,11 @@ export function renderGamePage(mount, context) {
   renderGameShell(mount, { ...context, gameStrings: GAME_LANG, setupGame: setupMatch3 });
 }
 
-function setupMatch3({ page, stage, game, gameIdx, parsed, durationMs, ghostScore, strings, localized }) {
+function setupMatch3({ page, gameZone, game, gameIdx, parsed, durationMs, ghostScore, strings, localized, performanceMeter }) {
   let activeStrings = strings;
   let activeLocalized = localized;
-  stage.classList.add("match3-stage");
-  stage.innerHTML = `
+  gameZone.classList.add("match3-zone");
+  gameZone.innerHTML = `
     <div class="match3-board" role="grid" aria-label="${localized.board}" data-board></div>
     <div class="match3-cover" data-cover>
       <div class="rules-card match3-rules">
@@ -44,14 +44,14 @@ function setupMatch3({ page, stage, game, gameIdx, parsed, durationMs, ghostScor
     <output class="countdown" data-countdown hidden></output>
   `;
 
-  const boardElement = stage.querySelector("[data-board]");
+  const boardElement = gameZone.querySelector("[data-board]");
   const boardWidth = MATCH3_BOARD_CFG.width;
   const boardHeight = MATCH3_BOARD_CFG.height;
   const boardSize = boardWidth * boardHeight;
   boardElement.style.setProperty("--match3-columns", String(boardWidth));
   boardElement.style.setProperty("--match3-aspect", `${boardWidth} / ${boardHeight}`);
-  const cover = stage.querySelector("[data-cover]");
-  const overlay = stage.querySelector("[data-overlay]");
+  const cover = gameZone.querySelector("[data-cover]");
+  const overlay = gameZone.querySelector("[data-overlay]");
   const engine = createMatch3Engine(parsed.seed, durationMs);
   let selectedIndex = null;
   let activeIndex = 0;
@@ -60,6 +60,7 @@ function setupMatch3({ page, stage, game, gameIdx, parsed, durationMs, ghostScor
   let lastSnapshot = null;
   let resultView = null;
   let failed = false;
+  let match3Input = null;
   renderInstructionText();
 
   function renderBoard(board, clearing = []) {
@@ -89,8 +90,10 @@ function setupMatch3({ page, stage, game, gameIdx, parsed, durationMs, ghostScor
 
   function onChange(snapshot) {
     lastSnapshot = snapshot;
+    performanceMeter.setPhase(snapshot.phase);
+    if (snapshot.phase !== PHASE_RUNNING) match3Input?.cancelSession();
     renderControllerStatus(page, snapshot, ghostScore, activeStrings);
-    stage.dataset.phase = snapshot.phase;
+    gameZone.dataset.phase = snapshot.phase;
     cover.hidden = !snapshot.concealed && snapshot.phase !== PHASE_INTRO && snapshot.phase !== PHASE_PAUSED && snapshot.phase !== PHASE_PREPARING;
     boardElement.setAttribute("aria-disabled", String(snapshot.phase !== PHASE_RUNNING));
     updateBoardTabStops(snapshot.phase);
@@ -113,35 +116,38 @@ function setupMatch3({ page, stage, game, gameIdx, parsed, durationMs, ghostScor
     initializeGame: () => engine.initialize(),
     settleSteps,
     onChange,
+    onPump: performanceMeter.recordTick,
     onError: (error) => {
       console.error("Match3 controller failed", error);
       failed = true;
+      match3Input?.cancelSession();
       renderControllerFailure(page, activeStrings);
     },
     flowCfg: MATCH3_FLOW_CFG,
   });
 
-  page.querySelector(".game-control").addEventListener("click", () => {
+  page.querySelector(".game-button").addEventListener("click", () => {
     const phase = controller.snapshot().phase;
     if (phase === PHASE_INTRO) controller.command(COMMAND_START);
     else if (phase === PHASE_RUNNING) controller.command(COMMAND_PAUSE);
     else if (phase === PHASE_PAUSED) controller.command(COMMAND_RESUME);
   });
 
-  const unbindGesture = bindGestureInput(boardElement, {
-    begin(event) {
-      if (lastSnapshot?.phase !== PHASE_RUNNING) return null;
+  match3Input = bindGameInput(boardElement, {
+    recognizer: "tap-swipe",
+    resolveContext(event) {
       const tile = event.target.closest?.("[data-index]");
       if (!tile || !boardElement.contains(tile)) return null;
-      const index = Number(tile.dataset.index);
-      return {
-        tapAction: { kind: "tap", index },
-        directions: swipeActions(index),
-      };
+      return Object.freeze({
+        index: Number(tile.dataset.index),
+        startedRunning: lastSnapshot?.phase === PHASE_RUNNING,
+      });
     },
-    commit(action) {
-      if (action.kind === "tap") activateTile(action.index);
-      else if (action.kind === "swap") submitSwap(action.from, action.to);
+    handle(inputEvent) {
+      if (!inputEvent.context.startedRunning) return;
+      if (inputEvent.type === "tap") activateTile(inputEvent.context.index);
+      else if (inputEvent.type === "swipe") activateSwipe(inputEvent.context.index, inputEvent.direction);
+      else if (inputEvent.type === "direction") moveActiveTile(inputEvent.context.index, inputEvent.direction);
     },
   });
 
@@ -157,6 +163,7 @@ function setupMatch3({ page, stage, game, gameIdx, parsed, durationMs, ghostScor
   }
 
   function submitSwap(fromIndex, toIndex) {
+    if (lastSnapshot?.phase !== PHASE_RUNNING) return;
     const from = indexToCell(fromIndex);
     const to = indexToCell(toIndex);
     selectedIndex = null;
@@ -164,34 +171,27 @@ function setupMatch3({ page, stage, game, gameIdx, parsed, durationMs, ghostScor
     void controller.submitAction({ from, to }).catch(() => {});
   }
 
-  function swipeActions(index) {
-    const actions = {};
+  function activateSwipe(index, direction) {
+    if (lastSnapshot?.phase !== PHASE_RUNNING) return;
+    const deltas = { north: -boardWidth, east: 1, south: boardWidth, west: -1 };
+    const delta = deltas[direction];
+    if (delta === undefined) return;
     const x = index % boardWidth;
     const y = Math.floor(index / boardWidth);
-    if (y > 0) actions.up = { kind: "swap", from: index, to: index - boardWidth };
-    if (x < boardWidth - 1) actions.right = { kind: "swap", from: index, to: index + 1 };
-    if (y < boardHeight - 1) actions.down = { kind: "swap", from: index, to: index + boardWidth };
-    if (x > 0) actions.left = { kind: "swap", from: index, to: index - 1 };
-    return actions;
+    if ((direction === "north" && y === 0) || (direction === "east" && x === boardWidth - 1) ||
+      (direction === "south" && y === boardHeight - 1) || (direction === "west" && x === 0)) return;
+    submitSwap(index, index + delta);
   }
 
-  boardElement.addEventListener("keydown", (event) => {
-    const tile = event.target.closest("[data-index]");
-    if (!tile) return;
-    const index = Number(tile.dataset.index);
-    if ((event.key === "Enter" || event.key === " ") && !event.repeat) {
-      event.preventDefault();
-      activateTile(index);
-      return;
-    }
-    const moves = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -boardWidth, ArrowDown: boardWidth };
-    const delta = moves[event.key];
-    if (!delta) return;
+  function moveActiveTile(index, direction) {
+    if (lastSnapshot?.phase !== PHASE_RUNNING) return;
+    const moves = { west: -1, east: 1, north: -boardWidth, south: boardWidth };
+    const delta = moves[direction];
+    if (delta === undefined) return;
     const next = index + delta;
     if (next < 0 || next >= boardSize || (delta === -1 && index % boardWidth === 0) || (delta === 1 && index % boardWidth === boardWidth - 1)) return;
-    event.preventDefault();
     setActiveIndex(next, true);
-  });
+  }
   boardElement.addEventListener("focusin", (event) => {
     const tile = event.target.closest?.("[data-index]");
     if (tile) setActiveIndex(Number(tile.dataset.index), false);
@@ -223,11 +223,11 @@ function setupMatch3({ page, stage, game, gameIdx, parsed, durationMs, ghostScor
   }
 
   function renderInstructionText() {
-    stage.querySelector("[data-instructions-title]").textContent = activeLocalized.instructionsTitle;
-    stage.querySelector("[data-rules-copy]").textContent = activeLocalized.rules;
-    stage.querySelector("[data-operation-select]").textContent = activeLocalized.operationSelect;
-    stage.querySelector("[data-operation-swap]").textContent = activeLocalized.operationSwap;
-    stage.querySelector("[data-operation-score]").textContent = activeLocalized.operationScore;
+    gameZone.querySelector("[data-instructions-title]").textContent = activeLocalized.instructionsTitle;
+    gameZone.querySelector("[data-rules-copy]").textContent = activeLocalized.rules;
+    gameZone.querySelector("[data-operation-select]").textContent = activeLocalized.operationSelect;
+    gameZone.querySelector("[data-operation-swap]").textContent = activeLocalized.operationSwap;
+    gameZone.querySelector("[data-operation-score]").textContent = activeLocalized.operationScore;
   }
 
   function indexToCell(index) {
@@ -258,7 +258,7 @@ function setupMatch3({ page, stage, game, gameIdx, parsed, durationMs, ghostScor
     },
     cleanup() {
       destroyed = true;
-      unbindGesture();
+      match3Input.destroy();
       controller.destroy();
       window.removeEventListener("blur", onBlur);
       window.removeEventListener("focus", onFocus);

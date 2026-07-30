@@ -25,8 +25,6 @@ export const STACKER_SHAPES = Object.freeze(Object.entries(masks).map(([id, mask
   mask: Object.freeze(mask),
   mesh: createMaskMesh(mask),
   weight: id === "solid" ? Object.keys(masks).length - 1 : 1,
-  // Deliberate per-shape extension points required by DESIGN.md; values are uniform today.
-  speedMultiplierPermille: 1000,
   cutsFootprint: true,
   color: colors[id],
 })));
@@ -35,22 +33,23 @@ export const STACKER_BOARD_CFG = Object.freeze({
   gridSize: 5,
   logicScale: 1_000_000,
   baseSize: 6,
-  minMotionSpan: 0.6,
 });
 
 export const STACKER_MOTION_CFG = Object.freeze({
-  initialSpeed: 2.8,
-  speedStepPerLayer: 0.25,
+  initialTraverseMs: 1_000,
+  minimumTraverseMs: 200,
+  // Gameplay cooldown and visual landing duration share this authority. The next brick starts afterwards.
+  landingMs: 120,
 });
 
 export const STACKER_SCORE_CFG = Object.freeze({
   retentionBasis: 10_000,
-  timeTickMs: 100,
-  scoreDivisor: 40_000,
+  scoreBase: 10_000,
+  retentionExponent: 1,
   maxScore: SCORE_MAX,
 });
 
-export const STACKER_ANIMATION_CFG = Object.freeze({ landMs: 180 });
+export const STACKER_ANIMATION_CFG = Object.freeze({ landMs: STACKER_MOTION_CFG.landingMs });
 
 export const STACKER_RENDER_CFG = Object.freeze({ layerHeightPx: 18 });
 

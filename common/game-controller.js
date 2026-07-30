@@ -45,7 +45,7 @@ export function createRaceClock(limitMs, readSystemMs = () => performance.now())
   return Object.freeze({ nowMs, start, pause, resume, finish });
 }
 
-export function createGameController({ limitMs, engine, initializeGame, applyAction, settleSteps, onChange, onError, readSystemMs, flowCfg = GAME_FLOW_CFG }) {
+export function createGameController({ limitMs, engine, initializeGame, applyAction, settleSteps, onChange, onError, onPump, readSystemMs, flowCfg = GAME_FLOW_CFG }) {
   const clock = createRaceClock(limitMs, readSystemMs);
   let phase = PHASE_INTRO;
   let countdown = 0;
@@ -170,6 +170,8 @@ export function createGameController({ limitMs, engine, initializeGame, applyAct
   }
 
   function pause() {
+    const raceTimeMs = clock.nowMs();
+    if (advanceAndMaybeFinish(raceTimeMs)) return;
     clock.pause();
     phase = PHASE_PAUSED;
     notify();
@@ -180,7 +182,7 @@ export function createGameController({ limitMs, engine, initializeGame, applyAct
       if (phase !== PHASE_RUNNING) return Promise.resolve(false);
       const raceTimeMs = clock.nowMs();
       if (raceTimeMs >= limitMs) {
-        finish("deadline");
+        if (!advanceAndMaybeFinish(limitMs)) finish("deadline");
         return Promise.resolve(false);
       }
       const input = Object.freeze({ timeMs: raceTimeMs, sequence: nextSequence++, action: Object.freeze(action) });
@@ -217,11 +219,26 @@ export function createGameController({ limitMs, engine, initializeGame, applyAct
 
   async function processInput(input) {
     if (phase !== PHASE_RUNNING || input.timeMs >= limitMs) return false;
+    if (advanceAndMaybeFinish(input.timeMs)) return false;
     const remainMs = limitMs - input.timeMs;
     const outcome = applyAction
       ? applyAction(input.action, remainMs, input.timeMs)
       : engine.applySwap(input.action.from, input.action.to, remainMs);
     if (!outcome.accepted) return false;
+
+    const mode = outcome.mode ?? "atomic";
+    if (mode !== "atomic" && mode !== "immediate") throw new RangeError("action mode must be atomic or immediate");
+    if (mode === "immediate") {
+      notify();
+      if (outcome.endReason) {
+        finish(outcome.endReason);
+      } else if (clock.nowMs() >= limitMs) {
+        if (!advanceAndMaybeFinish(limitMs)) finish("deadline");
+      } else if (!hasLegalMove()) {
+        finish("no_moves");
+      }
+      return true;
+    }
 
     phase = PHASE_SETTLING;
     notify();
@@ -230,7 +247,7 @@ export function createGameController({ limitMs, engine, initializeGame, applyAct
     if (outcome.endReason) {
       finish(outcome.endReason);
     } else if (deadlinePending || clock.nowMs() >= limitMs) {
-      finish("deadline");
+      if (!advanceAndMaybeFinish(limitMs)) finish("deadline");
     } else if (!hasLegalMove()) {
       finish("no_moves");
     } else if (interrupted || interruptionPausePending) {
@@ -260,6 +277,7 @@ export function createGameController({ limitMs, engine, initializeGame, applyAct
         pause();
       } else if (phase === PHASE_SETTLING) {
         interruptionPausePending = true;
+        if (advanceAndMaybeFinish(clock.nowMs())) return;
         clock.pause();
         notify();
       }
@@ -270,12 +288,24 @@ export function createGameController({ limitMs, engine, initializeGame, applyAct
     if (destroyed) return;
     if (initializingOpening) return;
     if (phase !== PHASE_RUNNING && phase !== PHASE_SETTLING) return;
-    if (clock.nowMs() >= limitMs) {
+    onPump?.();
+    const raceTimeMs = clock.nowMs();
+    if (raceTimeMs >= limitMs) {
+      if (advanceAndMaybeFinish(limitMs)) return;
       if (phase === PHASE_SETTLING) deadlinePending = true;
       else finish("deadline");
     } else {
+      if (advanceAndMaybeFinish(raceTimeMs)) return;
       notify();
     }
+  }
+
+  function advanceAndMaybeFinish(raceTimeMs) {
+    if (typeof engine.advanceTo !== "function") return false;
+    const outcome = engine.advanceTo(raceTimeMs);
+    if (!outcome?.endReason) return false;
+    finish(outcome.endReason);
+    return true;
   }
 
   function finish(reason) {

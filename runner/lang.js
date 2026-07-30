@@ -1,4 +1,26 @@
 export const GAME_LANG = {
-  zh: { name: "闪避", description: "在不断加速的赛道上闪避障碍。", rules: "左右移动避开障碍并坚持到时间结束；相同输入序列得到相同赛道与结果。" },
-  en: { name: "Runner", description: "Dodge obstacles on an increasingly fast track.", rules: "Move left and right to avoid obstacles until time expires. The same input sequence yields the same track and result." },
+  zh: {
+    name: "闪避",
+    description: "驾驶摩托车在三车道公路上争取得分。",
+    rules: "左右换道选择奖励并避开三角锥；速度会改变遭遇后续道路对象的时间。",
+    instructionsTitle: "三车道闪避",
+    operationSteer: "横向滑动，或使用左右方向键立即换道。",
+    operationObjects: "金币和钻石得分；加速带与减速带改变速度；三角锥扣除一颗心。",
+    operationScore: "限时结束或血量归零时结算，胜负只比较最终分数。",
+    road: "Runner 三车道道路",
+    steer: "左右换道",
+    resultReasons: { TIME_UP: "时间结束", HP_ZERO: "血量归零" },
+  },
+  en: {
+    name: "Runner",
+    description: "Ride a motorcycle and score on a three-lane road.",
+    rules: "Change lanes to collect rewards and avoid cones. Speed changes when you reach later road objects.",
+    instructionsTitle: "Three-lane runner",
+    operationSteer: "Swipe horizontally or use the left and right arrow keys to change lanes immediately.",
+    operationObjects: "Coins and diamonds score; speed pads change speed; cones cost one heart.",
+    operationScore: "The run ends at the time limit or zero health. Only final score decides the result.",
+    road: "Runner three-lane road",
+    steer: "Change lanes left and right",
+    resultReasons: { TIME_UP: "Time up", HP_ZERO: "No health remaining" },
+  },
 };

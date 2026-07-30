@@ -8,7 +8,7 @@ import { createGameResultView } from "../common/game-result.js";
 import { STACKER_ANIMATION_CFG, STACKER_BOARD_CFG, STACKER_FLOW_CFG, STACKER_RENDER_CFG, STACKER_SHAPES } from "./config.js";
 import { createStackerEngine } from "./engine.js";
 import { GAME_LANG } from "./lang.js";
-import { bindGestureInput } from "../common/gesture-input.js";
+import { bindGameInput } from "../common/gesture-input.js";
 
 const SHAPES_BY_ID = new Map(STACKER_SHAPES.map((shape) => [shape.id, shape]));
 
@@ -18,14 +18,16 @@ export function renderGamePage(mount, context) {
   renderGameShell(mount, { ...context, gameStrings: GAME_LANG, setupGame: setupStacker });
 }
 
-function setupStacker({ page, stage, game, gameIdx, parsed, durationMs, ghostScore, strings, localized }) {
+function setupStacker({ page, gameZone, game, gameIdx, parsed, durationMs, ghostScore, strings, localized, performanceMeter }) {
   let activeStrings = strings;
   let activeLocalized = localized;
   let lastSnapshot = null;
   let resultView = null;
   let failed = false;
-  stage.classList.add("stacker-stage");
-  stage.innerHTML = `
+  let stackerInput = null;
+  gameZone.classList.add("stacker-zone");
+  gameZone.style.setProperty("--stacker-land-ms", `${STACKER_ANIMATION_CFG.landMs}ms`);
+  gameZone.innerHTML = `
     <div class="stacker-playfield" data-playfield role="button" tabindex="-1">
       <svg class="stacker-scene" data-scene viewBox="0 0 600 620" role="img">
         <g data-camera>
@@ -47,16 +49,16 @@ function setupStacker({ page, stage, game, gameIdx, parsed, durationMs, ghostSco
     <output class="countdown" data-countdown hidden></output>
   `;
 
-  const playfield = stage.querySelector("[data-playfield]");
+  const playfield = gameZone.querySelector("[data-playfield]");
   const scene = playfield.querySelector("[data-scene]");
   const camera = scene.querySelector("[data-camera]");
   const staticTower = scene.querySelector("[data-static-tower]");
   const footprintLayer = scene.querySelector("[data-footprint]");
   const movingLayer = scene.querySelector("[data-moving]");
-  const layerReadout = stage.querySelector("[data-layer-readout]");
-  const shapeReadout = stage.querySelector("[data-shape-readout]");
-  const cover = stage.querySelector("[data-cover]");
-  const overlay = stage.querySelector("[data-overlay]");
+  const layerReadout = gameZone.querySelector("[data-layer-readout]");
+  const shapeReadout = gameZone.querySelector("[data-shape-readout]");
+  const cover = gameZone.querySelector("[data-cover]");
+  const overlay = gameZone.querySelector("[data-overlay]");
   const engine = createStackerEngine(parsed.seed, durationMs);
   let renderedLayerCount = 0;
   let movingRenderKey = "";
@@ -66,8 +68,10 @@ function setupStacker({ page, stage, game, gameIdx, parsed, durationMs, ghostSco
 
   function onChange(snapshot) {
     lastSnapshot = snapshot;
+    performanceMeter.setPhase(snapshot.phase);
+    if (snapshot.phase !== PHASE_RUNNING) stackerInput?.cancelSession();
     renderControllerStatus(page, snapshot, ghostScore, activeStrings);
-    stage.dataset.phase = snapshot.phase;
+    gameZone.dataset.phase = snapshot.phase;
     cover.hidden = !snapshot.concealed && snapshot.phase !== PHASE_INTRO && snapshot.phase !== PHASE_PAUSED && snapshot.phase !== PHASE_PREPARING;
     playfield.setAttribute("aria-disabled", String(snapshot.phase !== PHASE_RUNNING));
     playfield.tabIndex = snapshot.phase === PHASE_RUNNING ? 0 : -1;
@@ -83,9 +87,9 @@ function setupStacker({ page, stage, game, gameIdx, parsed, durationMs, ghostSco
   }
 
   async function settleSteps(steps) {
-    stage.classList.add(steps.some((step) => step.kind === "miss") ? "is-miss" : "is-landing");
+    gameZone.classList.add(steps.some((step) => step.kind === "miss") ? "is-miss" : "is-landing");
     await wait(STACKER_ANIMATION_CFG.landMs);
-    stage.classList.remove("is-miss", "is-landing");
+    gameZone.classList.remove("is-miss", "is-landing");
   }
 
   const controller = createGameController({
@@ -94,15 +98,17 @@ function setupStacker({ page, stage, game, gameIdx, parsed, durationMs, ghostSco
     applyAction: (action, remainMs, raceTimeMs) => engine.applyDrop(action, remainMs, raceTimeMs),
     settleSteps,
     onChange,
+    onPump: performanceMeter.recordTick,
     onError: (error) => {
       console.error("Stacker controller failed", error);
       failed = true;
+      stackerInput?.cancelSession();
       renderControllerFailure(page, activeStrings);
     },
     flowCfg: STACKER_FLOW_CFG,
   });
 
-  page.querySelector(".game-control").addEventListener("click", () => {
+  page.querySelector(".game-button").addEventListener("click", () => {
     const phase = controller.snapshot().phase;
     if (phase === PHASE_INTRO) controller.command(COMMAND_START);
     else if (phase === PHASE_RUNNING) controller.command(COMMAND_PAUSE);
@@ -110,16 +116,14 @@ function setupStacker({ page, stage, game, gameIdx, parsed, durationMs, ghostSco
   });
 
   const drop = () => {
-    if (controller.snapshot().phase === PHASE_RUNNING) void controller.submitAction({ kind: "drop" }).catch(() => {});
+    if (controller.snapshot().phase !== PHASE_RUNNING) return;
+    void controller.submitAction({ kind: "drop" }).catch(() => {});
   };
-  const unbindGesture = bindGestureInput(playfield, {
-    begin: () => controller.snapshot().phase === PHASE_RUNNING ? { downAction: { kind: "drop" } } : null,
-    commit: drop,
-  });
-  playfield.addEventListener("keydown", (event) => {
-    if ((event.key !== " " && event.key !== "Enter") || event.repeat) return;
-    event.preventDefault();
-    drop();
+  stackerInput = bindGameInput(playfield, {
+    recognizer: "press",
+    handle(inputEvent) {
+      if (inputEvent.type === "press") drop();
+    },
   });
   const syncInterruption = () => controller.handleInterruption(document.hidden || !document.hasFocus());
   const onBlur = () => controller.handleInterruption(true);
@@ -133,11 +137,11 @@ function setupStacker({ page, stage, game, gameIdx, parsed, durationMs, ghostSco
   function renderInstructionText() {
     playfield.setAttribute("aria-label", `${activeLocalized.tower}. ${activeLocalized.drop}`);
     scene.setAttribute("aria-label", activeLocalized.tower);
-    stage.querySelector("[data-instructions-title]").textContent = activeLocalized.instructionsTitle;
-    stage.querySelector("[data-rules-copy]").textContent = activeLocalized.rules;
-    stage.querySelector("[data-operation-drop]").textContent = activeLocalized.operationDrop;
-    stage.querySelector("[data-operation-footprint]").textContent = activeLocalized.operationFootprint;
-    stage.querySelector("[data-operation-score]").textContent = activeLocalized.operationScore;
+    gameZone.querySelector("[data-instructions-title]").textContent = activeLocalized.instructionsTitle;
+    gameZone.querySelector("[data-rules-copy]").textContent = activeLocalized.rules;
+    gameZone.querySelector("[data-operation-drop]").textContent = activeLocalized.operationDrop;
+    gameZone.querySelector("[data-operation-footprint]").textContent = activeLocalized.operationFootprint;
+    gameZone.querySelector("[data-operation-score]").textContent = activeLocalized.operationScore;
   }
 
   function renderScene(snapshot) {
@@ -195,7 +199,7 @@ function setupStacker({ page, stage, game, gameIdx, parsed, durationMs, ghostSco
       if (lastSnapshot) onChange(lastSnapshot);
     },
     cleanup() {
-      unbindGesture();
+      stackerInput.destroy();
       controller.destroy();
       window.removeEventListener("blur", onBlur);
       window.removeEventListener("focus", onFocus);

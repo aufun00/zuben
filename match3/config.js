@@ -8,7 +8,8 @@ export const MATCH3_BOARD_CFG = Object.freeze({
 });
 
 export const MATCH3_SCORE_CFG = Object.freeze({
-  timeDivisorMs: 200,
+  clearScoreBase: 250,
+  noFillChainMultiplier: 10,
   maxScore: SCORE_MAX,
 });
 

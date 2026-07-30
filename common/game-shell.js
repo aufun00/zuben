@@ -5,8 +5,9 @@ import { readResultScore } from "./result-code.js";
 import { SCORE_MAX } from "./protocol-constants.js";
 import { LANG } from "../lang.js";
 import { PHASE_ENDED, PHASE_INTRO, PHASE_PAUSED, PHASE_PREPARING, PHASE_RUNNING, PHASE_SETTLING } from "./game-controller.js";
+import { createPerformanceMeter } from "./performance-meter.js";
 
-export function renderGameShell(mount, { game, gameIdx, params, version, gameStrings, setupGame }) {
+export function renderGameShell(mount, { game, gameIdx, params, version, gameStrings, setupGame, performanceMeterCfg }) {
   mount.replaceChildren();
   let cleanup = () => {};
   let cleanupHeader = () => {};
@@ -46,11 +47,11 @@ export function renderGameShell(mount, { game, gameIdx, params, version, gameStr
   const page = document.createElement("main");
   page.className = "game-page";
   page.innerHTML = `
-    <section class="game-status" aria-label="${strings.gameStatus}">
+    <section class="game-bar" aria-label="${strings.gameStatus}">
       <div class="status-metric time-metric" title="${strings.time}">
         ${iconMarkup("clock", "status-icon")}<span class="visually-hidden">${strings.time}</span><strong data-time>${formatRemaining(duration * 1000)}</strong>
       </div>
-      <button class="game-control" type="button" aria-label="${strings.start}" title="${strings.start}">${iconMarkup("play", "control-icon")}</button>
+      <button class="game-button" type="button" aria-label="${strings.start}" title="${strings.start}">${iconMarkup("play", "game-button-icon")}</button>
       <div class="status-metric score-metric" title="${strings.score}">
         ${iconMarkup("score", "status-icon")}<span class="visually-hidden">${strings.score}</span><strong data-score>0</strong>
       </div>
@@ -63,16 +64,17 @@ export function renderGameShell(mount, { game, gameIdx, params, version, gameStr
         ${iconMarkup("ghost", "status-icon")}<span class="visually-hidden">${strings.ghost}</span><strong data-ghost>${ghostScore}</strong>
       </div>
     </section>
-    <section class="game-stage" data-game-stage>
+    <section class="game-zone" data-game-zone>
       <output class="countdown" data-countdown hidden></output>
     </section>
   `;
   mount.append(page);
   updateTugBar(page, 0, ghostScore, strings, 0, duration * 1000);
   if (setupGame) {
+    const performanceMeter = createPerformanceMeter(page, performanceMeterCfg);
     const binding = setupGame({
       page,
-      stage: page.querySelector("[data-game-stage]"),
+      gameZone: page.querySelector("[data-game-zone]"),
       parsed,
       game,
       gameIdx,
@@ -80,22 +82,25 @@ export function renderGameShell(mount, { game, gameIdx, params, version, gameStr
       ghostScore,
       strings,
       localized,
+      performanceMeter,
     });
-    if (typeof binding === "function") cleanup = binding;
+    if (typeof binding === "function") cleanup = () => { binding(); performanceMeter.destroy(); };
     else if (binding) {
-      cleanup = binding.cleanup ?? cleanup;
+      cleanup = () => { binding.cleanup?.(); performanceMeter.destroy(); };
       languageBinding = (nextLanguage) => {
         const nextStrings = LANG[nextLanguage] ?? LANG.en;
         const nextLocalized = gameStrings[nextLanguage] ?? gameStrings.en;
         updateGameChromeLanguage(page, nextStrings);
         binding.setLanguage?.({ language: nextLanguage, strings: nextStrings, localized: nextLocalized });
       };
+    } else {
+      cleanup = () => performanceMeter.destroy();
     }
     return;
   }
 
-  page.querySelector("[data-game-stage]").insertAdjacentHTML("afterbegin", `
-    ${iconMarkup(game.gameID, "game-stage-icon")}
+  page.querySelector("[data-game-zone]").insertAdjacentHTML("afterbegin", `
+    ${iconMarkup(game.gameID, "game-zone-icon")}
     <h1>${localized.name}</h1>
     <p>${strings.gamePlaceholder}</p>
     <div class="rules-card" data-rules><span>${strings.rules}</span><p>${localized.rules}</p></div>
@@ -108,7 +113,7 @@ export function renderGameShell(mount, { game, gameIdx, params, version, gameStr
 }
 
 function connectClock(page, durationSeconds, strings) {
-  const button = page.querySelector(".game-control");
+  const button = page.querySelector(".game-button");
   const time = page.querySelector("[data-time]");
   const rules = page.querySelector("[data-rules]");
   const countdown = page.querySelector("[data-countdown]");
@@ -170,7 +175,7 @@ function connectClock(page, durationSeconds, strings) {
 }
 
 export function setControlButton(button, icon, label) {
-  button.innerHTML = iconMarkup(icon, "control-icon");
+  button.innerHTML = iconMarkup(icon, "game-button-icon");
   button.setAttribute("aria-label", label);
   button.title = label;
 }
@@ -219,7 +224,7 @@ function normalizeScore(value) {
 export function renderControllerStatus(page, snapshot, ghostScore, strings) {
   page.querySelector("[data-time]").textContent = formatRemaining(snapshot.remainingMs);
   updateTugBar(page, snapshot.game.score, ghostScore, strings, snapshot.raceTimeMs, snapshot.raceTimeMs + snapshot.remainingMs);
-  const button = page.querySelector(".game-control");
+  const button = page.querySelector(".game-button");
   const countdown = page.querySelector("[data-countdown]");
   countdown.hidden = snapshot.phase !== PHASE_PREPARING;
   if (snapshot.phase === PHASE_PREPARING) countdown.value = snapshot.countdown;
@@ -246,12 +251,12 @@ export function renderControllerStatus(page, snapshot, ghostScore, strings) {
 }
 
 export function renderControllerFailure(page, strings) {
-  const button = page.querySelector(".game-control");
+  const button = page.querySelector(".game-button");
   button.disabled = true;
   setControlButton(button, "finish", strings.failed);
-  const stage = page.querySelector("[data-game-stage]");
-  stage.dataset.phase = "PHASE_ERROR";
-  stage.setAttribute("aria-disabled", "true");
+  const gameZone = page.querySelector("[data-game-zone]");
+  gameZone.dataset.phase = "PHASE_ERROR";
+  gameZone.setAttribute("aria-disabled", "true");
   const panel = document.createElement("section");
   panel.className = "game-error game-runtime-error";
   panel.setAttribute("role", "alert");
@@ -260,12 +265,12 @@ export function renderControllerFailure(page, strings) {
   const hint = document.createElement("p");
   hint.textContent = strings.gameErrorHint;
   panel.append(title, hint);
-  stage.replaceChildren(panel);
+  gameZone.replaceChildren(panel);
 }
 
 export function updateGameChromeLanguage(page, strings) {
-  const status = page.querySelector(".game-status");
-  status.setAttribute("aria-label", strings.gameStatus);
+  const gameBar = page.querySelector(".game-bar");
+  gameBar.setAttribute("aria-label", strings.gameStatus);
   for (const [selector, label] of [[".time-metric", strings.time], [".score-metric", strings.score], [".ghost-metric", strings.ghost]]) {
     const metric = page.querySelector(selector);
     metric.title = label;
