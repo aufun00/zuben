@@ -1,4 +1,4 @@
-const VERSION = "0.0.29";
+const VERSION = "0.0.31";
 const CACHE_NAME = `zuben-${VERSION}`;
 const NETWORK_TIMEOUT_MS = 3000;
 const CORE = [
@@ -10,6 +10,7 @@ const CORE = [
   "./match3/config.js", "./match3/engine.js", "./match3/game.js", "./match3/game.css", "./match3/lang.js",
   "./stacker/config.js", "./stacker/engine.js", "./stacker/game.js", "./stacker/game.css", "./stacker/lang.js", "./stacker/mesh.js",
   "./runner/config.js", "./runner/road.js", "./runner/runtime.js", "./runner/render.js", "./runner/svg.js", "./runner/game.js", "./runner/game.css", "./runner/lang.js",
+  "./2048/config.js", "./2048/engine.js", "./2048/runtime.js", "./2048/render.js", "./2048/game.js", "./2048/game.css", "./2048/lang.js",
 ];
 const CORE_URLS = new Set(CORE.map((path) => new URL(path, self.location.href).href));
 

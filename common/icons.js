@@ -17,6 +17,7 @@ const ICONS = {
   match3: `<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="6" y="6" width="15" height="15" rx="5" fill="#85f2c5"/><rect x="27" y="6" width="15" height="15" rx="7.5" fill="#a9a0ff"/><rect x="6" y="27" width="15" height="15" rx="3" fill="#ffb86b"/><path d="m34.5 26 9 16h-18l9-16Z" fill="#ff7385"/></svg>`,
   stacker: `<svg viewBox="0 0 48 48" aria-hidden="true"><path d="m24 4 18 9-18 9L6 13l18-9Z" fill="#a9a0ff"/><path d="m8 21 16 8 16-8v9l-16 8-16-8v-9Z" fill="#85f2c5"/><path d="m13 36 11 5.5L35 36v5L24 47 13 41v-5Z" fill="#ffb86b"/></svg>`,
   runner: `<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M16 5h16l8 38H8L16 5Z" fill="#252b40"/><path d="M23 8h2v7h-2zm0 12h2v8h-2zm0 13h2v10h-2z" fill="#f7f7fb"/><path d="m13 31 9-8 5 5-9 8-5-5Z" fill="#85f2c5"/><circle cx="16" cy="37" r="4" fill="#a9a0ff"/><circle cx="29" cy="25" r="4" fill="#a9a0ff"/></svg>`,
+  "2048": `<svg viewBox="0 0 48 48" aria-hidden="true"><rect x="4" y="4" width="18" height="18" rx="4" fill="#f2b179"/><rect x="26" y="4" width="18" height="18" rx="4" fill="#f59563"/><rect x="4" y="26" width="18" height="18" rx="4" fill="#edcf72"/><rect x="26" y="26" width="18" height="18" rx="4" fill="#edc22e"/><g fill="#fff" font-family="Arial,sans-serif" font-size="13" font-weight="900" text-anchor="middle"><text x="13" y="18">2</text><text x="35" y="18">0</text><text x="13" y="40">4</text><text x="35" y="40">8</text></g></svg>`,
 };
 
 export function iconMarkup(iconID, className = "") {

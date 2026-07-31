@@ -1,0 +1,28 @@
+export const GAME_LANG = {
+  zh: {
+    name: "2048",
+    description: "在方形棋盘上滑动并合并相同数字。",
+    rules: "向四个方向滑动；相同数字按移动方向合并，每块砖在一次移动中最多合并一次。",
+    instructionsTitle: "合并数字",
+    operationMove: "快速四向滑动，或使用方向键移动全部数字。",
+    operationSpawn: "每次有效移动后随机生成一块2或4；无效移动不会生成。",
+    operationScore: "合并后的数字直接加入总分；时间结束或无路可走时结算。",
+    board: "2048数字棋盘",
+    maxTile: "最大",
+    moves: "步数",
+    resultReasons: { TIME_UP: "时间结束", NO_MOVES: "没有可移动方向" },
+  },
+  en: {
+    name: "2048",
+    description: "Slide and merge matching numbers on a square board.",
+    rules: "Swipe in four directions. Equal tiles merge in the move direction, and each tile can merge only once per move.",
+    instructionsTitle: "Merge the numbers",
+    operationMove: "Swipe quickly in four directions or use the arrow keys to move every tile.",
+    operationSpawn: "A 2 or 4 appears after each valid move. Invalid moves spawn nothing.",
+    operationScore: "Merged values add directly to your score. The game ends at the time limit or when no move remains.",
+    board: "2048 number board",
+    maxTile: "Max",
+    moves: "Moves",
+    resultReasons: { TIME_UP: "Time up", NO_MOVES: "No moves remaining" },
+  },
+};
