@@ -156,6 +156,17 @@ export function formatTileValue(value) {
   return String(value);
 }
 
+export function getEnergyProgress(energy, energyCfg = cfg) {
+  if (!Number.isSafeInteger(energy) || energy < 0) throw new RangeError("energy must be a nonnegative safe integer");
+  const green = energyCfg.EnergyGreenThreshold;
+  const orange = energyCfg.EnergyOrangeThreshold;
+  const purple = energyCfg.EnergyPurpleThreshold;
+  if (energy >= purple) return 1;
+  if (energy >= orange) return (2 + (energy - orange) / (purple - orange)) / 3;
+  if (energy >= green) return (1 + (energy - green) / (orange - green)) / 3;
+  return energy / green / 3;
+}
+
 function createNodes(parent, count, tagName, className) {
   return Array.from({ length: count }, () => {
     const node = document.createElement(tagName);

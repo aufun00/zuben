@@ -1,4 +1,4 @@
-const VERSION = "0.0.32";
+const VERSION = "0.0.36";
 const CACHE_NAME = `zuben-${VERSION}`;
 const NETWORK_TIMEOUT_MS = 3000;
 const CORE = [

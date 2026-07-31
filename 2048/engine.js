@@ -13,6 +13,19 @@ export function validate2048Config(cfg) {
   const spawnWeight = cfg.SpawnTwoWeight + cfg.SpawnFourWeight;
   if (!Number.isSafeInteger(spawnWeight) || spawnWeight <= 0 || spawnWeight > 0x1_0000_0000) fail("spawnWeight");
   if (!Number.isSafeInteger(cfg.PrepareMS) || cfg.PrepareMS < 0) fail("PrepareMS");
+  for (const key of [
+    "EnergyInitial", "EnergyChargeMultiplier", "EnergyDecayMS", "EnergyDecayDelta",
+    "EnergyGreenThreshold", "EnergyOrangeThreshold", "EnergyPurpleThreshold",
+    "ScoreEnergyDivisor",
+    "EnergyBarHeightPx", "EnergyBarMultiplierWidthPx", "EnergyBarArcMS", "EnergyBarTransitionMS",
+  ]) {
+    if (!Number.isSafeInteger(cfg[key]) || cfg[key] <= 0) fail(key);
+  }
+  if (!(cfg.EnergyGreenThreshold < cfg.EnergyOrangeThreshold &&
+    cfg.EnergyOrangeThreshold < cfg.EnergyPurpleThreshold)) fail("energy thresholds");
+  for (const key of ["EnergyBarIdleColor", "EnergyBarGreenColor", "EnergyBarOrangeColor", "EnergyBarPurpleColor"]) {
+    if (typeof cfg[key] !== "string" || cfg[key].trim() === "") fail(key);
+  }
   for (const key of ["SwipeThresholdPx", "MoveMS", "PumpWaitMS", "RenderWaitMS", "PerformanceWindowMS"]) {
     if (!Number.isFinite(cfg[key]) || cfg[key] <= 0) fail(key);
   }

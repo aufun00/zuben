@@ -10,7 +10,7 @@ import { bindGameInput } from "../common/gesture-input.js";
 import { cfg, TWENTY48_PERFORMANCE_CFG } from "./config.js";
 import { dominantDirection } from "./engine.js";
 import { GAME_LANG } from "./lang.js";
-import { create2048Renderer, formatTileValue } from "./render.js";
+import { create2048Renderer, formatTileValue, getEnergyProgress } from "./render.js";
 import {
   PHASE_ENDED,
   PHASE_ERROR,
@@ -46,12 +46,22 @@ function setup2048({ page, gameZone, game, gameIdx, parsed, durationMs, ghostSco
   let renderedTime = null;
   let renderedScore = null;
   let renderedGhost = null;
+  let renderedEnergy = null;
+  let renderedScoreMultiplier = null;
   let renderedMaxTile = null;
   let renderedMoveCount = null;
 
   gameZone.classList.add("twenty48-zone");
   gameZone.innerHTML = `
     <div class="twenty48-playfield" data-2048-playfield role="application" tabindex="-1">
+      <div class="twenty48-energy" data-energy-tier="idle">
+        <div class="twenty48-energy-track" data-energy-track role="progressbar" aria-valuemin="0" aria-valuemax="${cfg.EnergyPurpleThreshold}">
+          <span class="twenty48-energy-marker twenty48-energy-marker-green"></span>
+          <span class="twenty48-energy-marker twenty48-energy-marker-orange"></span>
+          <span class="twenty48-energy-fill" data-energy-fill><i class="twenty48-energy-head"></i></span>
+        </div>
+        <strong class="twenty48-energy-multiplier" data-energy-multiplier>×10.0</strong>
+      </div>
       <div class="twenty48-hud">
         <span><span data-max-label></span><strong data-max-tile>0</strong></span>
         <span><span data-moves-label></span><strong data-move-count>0</strong></span>
@@ -75,6 +85,8 @@ function setup2048({ page, gameZone, game, gameIdx, parsed, durationMs, ghostSco
   const playfield = gameZone.querySelector("[data-2048-playfield]");
   const cover = gameZone.querySelector("[data-2048-cover]");
   const overlay = gameZone.querySelector("[data-2048-overlay]");
+  const energyMeter = gameZone.querySelector(".twenty48-energy");
+  applyEnergyBarConfig(energyMeter);
   gameZone.append(performanceMeter.element);
 
   try {
@@ -131,6 +143,19 @@ function setup2048({ page, gameZone, game, gameIdx, parsed, durationMs, ghostSco
       renderedGhost = shownGhost;
     }
     const boardMetaChanged = forceChrome || renderedMaxTile !== snapshot.maxTile || renderedMoveCount !== snapshot.moveCount;
+    if (forceChrome || renderedEnergy !== snapshot.energy || renderedScoreMultiplier !== snapshot.scoreMultiplier) {
+      const energyTrack = gameZone.querySelector("[data-energy-track]");
+      const tier = energyTier(snapshot.energy);
+      const multiplierText = formatScoreMultiplier(snapshot.scoreMultiplier);
+      energyMeter.dataset.energyTier = tier;
+      energyMeter.style.setProperty("--energy-progress", String(getEnergyProgress(snapshot.energy)));
+      energyTrack.setAttribute("aria-label", activeLocalized.energy);
+      energyTrack.setAttribute("aria-valuenow", String(snapshot.energy));
+      energyTrack.setAttribute("aria-valuetext", `${snapshot.energy}, ${multiplierText}`);
+      gameZone.querySelector("[data-energy-multiplier]").textContent = multiplierText;
+      renderedEnergy = snapshot.energy;
+      renderedScoreMultiplier = snapshot.scoreMultiplier;
+    }
     if (forceChrome || renderedMaxTile !== snapshot.maxTile) {
       gameZone.querySelector("[data-max-tile]").textContent = formatTileValue(snapshot.maxTile);
       renderedMaxTile = snapshot.maxTile;
@@ -250,4 +275,26 @@ function ensureStylesheet() {
   link.rel = "stylesheet";
   link.href = href;
   document.head.append(link);
+}
+
+function energyTier(energy) {
+  if (energy >= cfg.EnergyPurpleThreshold) return "purple";
+  if (energy >= cfg.EnergyOrangeThreshold) return "orange";
+  if (energy >= cfg.EnergyGreenThreshold) return "green";
+  return "idle";
+}
+
+function formatScoreMultiplier(multiplier) {
+  return `×${multiplier.toFixed(1)}`;
+}
+
+function applyEnergyBarConfig(element) {
+  element.style.setProperty("--energy-idle-color", cfg.EnergyBarIdleColor);
+  element.style.setProperty("--energy-green-color", cfg.EnergyBarGreenColor);
+  element.style.setProperty("--energy-orange-color", cfg.EnergyBarOrangeColor);
+  element.style.setProperty("--energy-purple-color", cfg.EnergyBarPurpleColor);
+  element.style.setProperty("--energy-bar-height", `${cfg.EnergyBarHeightPx}px`);
+  element.style.setProperty("--energy-multiplier-width", `${cfg.EnergyBarMultiplierWidthPx}px`);
+  element.style.setProperty("--energy-arc-ms", `${cfg.EnergyBarArcMS}ms`);
+  element.style.setProperty("--energy-transition-ms", `${cfg.EnergyBarTransitionMS}ms`);
 }

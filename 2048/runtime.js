@@ -92,6 +92,8 @@ export function create2048Runtime({
   let operation = OPERATION_IDLE;
   let board = Object.freeze(Array(cfg.BoardSize ** 2).fill(0));
   let score = 0;
+  let energy = cfg.EnergyInitial;
+  let energyDecayGT = 0;
   let maxTile = 0;
   let moveCount = 0;
   let transition = null;
@@ -162,7 +164,10 @@ export function create2048Runtime({
     const deadlineBN = gameTime.getBN(limitMS);
     if (deadlineBN === null) throw new Error("2048 deadline is unavailable");
     drainQueue(deadlineBN, tickBN);
-    if (phase === PHASE_RUNNING) end("TIME_UP", limitMS);
+    if (phase === PHASE_RUNNING) {
+      settleEnergy(limitMS);
+      end("TIME_UP", limitMS);
+    }
   }
 
   function drainQueue(upToBN, tickBN) {
@@ -208,12 +213,15 @@ export function create2048Runtime({
     if (phase !== PHASE_RUNNING || operation !== OPERATION_IDLE) return;
     const actionGT = gameTime.getGT(item.BN);
     if (actionGT === null || actionGT < 0 || actionGT > limitMS) return;
+    settleEnergy(actionGT);
     const moved = moveBoard(board, cfg.BoardSize, item.data.direction);
     if (!moved.changed) return;
 
     const generated = spawnTile(moved.board, cfg, rng);
     board = generated.board;
-    score = moved.scoreDelta >= SCORE_MAX - score ? SCORE_MAX : score + moved.scoreDelta;
+    energy = saturatingEnergyAdd(energy, moved.scoreDelta, cfg.EnergyChargeMultiplier);
+    const scoreMultiplier = getEnergyMultiplier(energy, cfg);
+    score = saturatingScoreAdd(score, moved.scoreDelta, energy, cfg.ScoreEnergyDivisor);
     maxTile = getMaxTile(board);
     moveCount += 1;
 
@@ -245,11 +253,13 @@ export function create2048Runtime({
     const pauseGT = gameTime.getGT(BN);
     if (pauseGT === null || pauseGT < 0) return;
     if (operation === OPERATION_MOVING && transition !== null) {
+      settleEnergy(transition.endGT);
       gameTime.pauseAndJumpTo(BN, transition.endGT);
       removeQueued(TYPE_FINISH_MOVE);
       operation = OPERATION_IDLE;
       transition = null;
     } else {
+      settleEnergy(pauseGT);
       gameTime.pause(BN);
     }
     phase = PHASE_PAUSED;
@@ -272,6 +282,7 @@ export function create2048Runtime({
     const prepareRemainingMS = phase === PHASE_PREPARING && prepareAt !== null ? Math.max(0, prepareAt - sampleBN) : 0;
     const sampledGT = gameTime.getGT(sampleBN);
     const runGT = phase === PHASE_ENDED ? endedGT : Math.max(0, sampledGT ?? 0);
+    if (phase === PHASE_RUNNING) settleEnergy(Math.min(runGT, limitMS));
     latestSnapshot = Object.freeze({
       phase,
       operation,
@@ -280,6 +291,8 @@ export function create2048Runtime({
       prepareRemainingMS,
       board,
       score,
+      energy,
+      scoreMultiplier: getEnergyMultiplier(energy, cfg),
       maxTile,
       moveCount,
       transition,
@@ -294,6 +307,14 @@ export function create2048Runtime({
     if (destroyed || pumpTimer !== null) return;
     pumpDueBN = readBN() + cfg.PumpWaitMS;
     pumpTimer = setTimer(() => runSafely(pump), cfg.PumpWaitMS);
+  }
+
+  function settleEnergy(atGT) {
+    if (!Number.isFinite(atGT) || atGT < energyDecayGT) return;
+    const decayTicks = Math.floor((atGT - energyDecayGT) / cfg.EnergyDecayMS);
+    if (decayTicks <= 0) return;
+    energyDecayGT += decayTicks * cfg.EnergyDecayMS;
+    energy = Math.max(0, energy - decayTicks * cfg.EnergyDecayDelta);
   }
 
   function removeQueued(type) {
@@ -340,6 +361,22 @@ export function create2048Runtime({
       iQ.length = 0;
     },
   });
+}
+
+export function getEnergyMultiplier(energy, cfg) {
+  if (!Number.isSafeInteger(energy) || energy < 0) throw new RangeError("energy must be a nonnegative safe integer");
+  return energy / cfg.ScoreEnergyDivisor;
+}
+
+function saturatingEnergyAdd(energy, rawCharge, multiplier) {
+  const remaining = Number.MAX_SAFE_INTEGER - energy;
+  return rawCharge > Math.floor(remaining / multiplier) ? Number.MAX_SAFE_INTEGER : energy + rawCharge * multiplier;
+}
+
+function saturatingScoreAdd(score, rawDelta, energy, divisor) {
+  const remaining = SCORE_MAX - score;
+  if (energy > Math.floor(remaining * divisor / rawDelta)) return SCORE_MAX;
+  return score + Math.floor(rawDelta * energy / divisor);
 }
 
 export function nextBounded(rng, bound) {

@@ -9,6 +9,23 @@ export const cfg = Object.freeze({
   SwipeThresholdPx: 28,   // Immediate four-way swipe threshold, in CSS pixels.
   MoveMS: 140,            // Input-locking move transition duration, in milliseconds.
 
+  EnergyInitial: 50,           // Starting energy before GameTime begins.
+  EnergyChargeMultiplier: 2,  // Merged-value sum is multiplied by this amount when charging.
+  EnergyDecayMS: 100,          // Energy settles in deterministic GameTime steps.
+  EnergyDecayDelta: 1,         // Energy lost at each decay step.
+  EnergyGreenThreshold: 100,   // Reaching this energy enables the green score tier.
+  EnergyOrangeThreshold: 200,  // Reaching this energy enables the orange score tier.
+  EnergyPurpleThreshold: 400,  // Reaching this energy enables the purple score tier.
+  ScoreEnergyDivisor: 5,       // Score factor is charged energy divided by this value.
+  EnergyBarIdleColor: "#81909b",
+  EnergyBarGreenColor: "#35d477",
+  EnergyBarOrangeColor: "#ff9f35",
+  EnergyBarPurpleColor: "#b76cff",
+  EnergyBarHeightPx: 12,
+  EnergyBarMultiplierWidthPx: 48,
+  EnergyBarArcMS: 620,
+  EnergyBarTransitionMS: 90,
+
   PumpWaitMS: 10,         // Delay before the next one-shot Pump, in milliseconds.
   RenderWaitMS: 32,       // Non-harmonic delay avoids repeated alignment with the 10ms Pump.
   PerformanceWindowMS: 2_000,
