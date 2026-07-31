@@ -5,8 +5,8 @@ export const cfg = Object.freeze({
   MaxBlood: 3,               // Maximum health, in hearts.
 
   NormalSpeed: 100,          // Normal speed basis; 100 means 1.00x.
-  InitialSpeed: 100,         // Starting speed; 100 means 1.00x.
-  MinSpeed: 50,              // Minimum speed; 50 means 0.50x.
+  InitialSpeed: 200,         // Starting speed; 200 means 2.00x.
+  MinSpeed: 100,             // Minimum speed; 100 means 1.00x.
   MaxSpeed: 800,             // Maximum speed; 800 means 8.00x.
 
   RewardBaseScore: 100,      // Score at 1.00x speed and reward factor 1.
@@ -42,7 +42,7 @@ export const RUNNER_OBJECTS = Object.freeze({
   cone: Object.freeze({
     roadWeight: 15,
     roadType: "penalty",
-    runSpeedDelta: 0,
+    runSpeedDelta: -25,
     runScoreFactor: 0,
     runBloodDelta: -1,
     svg: "cone",
@@ -66,7 +66,7 @@ export const RUNNER_OBJECTS = Object.freeze({
   coin: Object.freeze({
     roadWeight: 20,
     roadType: "reward",
-    runSpeedDelta: 1,
+    runSpeedDelta: 5,
     runScoreFactor: 1,
     runBloodDelta: 0,
     svg: "coin",

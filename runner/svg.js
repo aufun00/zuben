@@ -11,9 +11,11 @@ export const RUNNER_SVG = Object.freeze({
   </symbol>`,
   acceleration: `<symbol id="runner-acceleration" viewBox="-50 -28 100 56">
     <path d="M-34-20H34L46 20H-46Z" fill="#58c985"/>
+    <path d="M-18 8L0-8L18 8M-18 20L0 4L18 20" fill="none" stroke="#f4f4ee" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
   </symbol>`,
   deceleration: `<symbol id="runner-deceleration" viewBox="-50 -28 100 56">
     <path d="M-34-20H34L46 20H-46Z" fill="#e66f73"/>
+    <path d="M-18-8L0 8L18-8M-18 4L0 20L18 4" fill="none" stroke="#f4f4ee" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
   </symbol>`,
   coin: `<symbol id="runner-coin" viewBox="-65 -65 130 130">
     <circle r="38" fill="#f5b82e" stroke="#fff1a6" stroke-width="7"/>

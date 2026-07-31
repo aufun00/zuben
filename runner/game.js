@@ -120,6 +120,7 @@ function setupRunner({ page, gameZone, game, gameIdx, parsed, durationMs, ghostS
 
   function onSnapshot(snapshot) {
     if (destroyed || failed || !snapshot) return;
+    const enteredRunning = latestSnapshot?.phase !== PHASE_RUNNING && snapshot.phase === PHASE_RUNNING;
     latestSnapshot = snapshot;
     performanceMeter.setPhase(snapshot.phase);
     gameZone.dataset.phase = snapshot.phase;
@@ -148,6 +149,7 @@ function setupRunner({ page, gameZone, game, gameIdx, parsed, durationMs, ghostS
     cover.hidden = snapshot.phase === PHASE_RUNNING || snapshot.phase === PHASE_ENDED;
     playfield.tabIndex = snapshot.phase === PHASE_RUNNING ? 0 : -1;
     playfield.setAttribute("aria-disabled", String(snapshot.phase !== PHASE_RUNNING));
+    if (enteredRunning) playfield.focus({ preventScroll: true });
     overlay.hidden = snapshot.phase !== PHASE_ENDED;
     if (snapshot.phase === PHASE_ENDED && !resultView) {
       runnerInput?.cancelSession();

@@ -105,7 +105,7 @@ export function createRunnerRenderer({ gameZone, road, objects, runtime, perform
         continue;
       }
       const symbolID = SYMBOL_IDS[objects[item.key].svg];
-      const position = project(item.lane, item.relative);
+      const position = projectRoadObject(item.lane, item.relative);
       node.setAttribute("visibility", "visible");
       if (node.dataset.runnerObject !== item.key) {
         node.dataset.runnerObject = item.key;
@@ -141,10 +141,23 @@ export function createRunnerRenderer({ gameZone, road, objects, runtime, perform
   });
 }
 
-function project(lane, relative) {
+export function projectRoadObject(lane, relative) {
   const t = 1 - Math.min(1, Math.max(0, relative / cfg.ViewDistance));
   const depth = t ** 1.35;
   const y = 154 + depth * 486;
-  const laneOffset = (lane - 1) * (46 + depth * 138);
-  return { x: 300 + laneOffset, y, scale: 0.22 + depth * 0.78 };
+  const roadProgress = (y - 145) / (760 - 145);
+  const laneCenters = [
+    midpoint(lerp(245, 35, roadProgress), lerp(282, 212, roadProgress)),
+    300,
+    midpoint(lerp(318, 388, roadProgress), lerp(355, 565, roadProgress)),
+  ];
+  return { x: laneCenters[lane], y, scale: 0.22 + depth * 0.78 };
+}
+
+function lerp(start, end, progress) {
+  return start + (end - start) * progress;
+}
+
+function midpoint(first, second) {
+  return (first + second) / 2;
 }
