@@ -108,7 +108,14 @@ export function bindGameInput(element, {
       if (current.dragging) emit(cancelled ? "dragCancel" : "dragEnd", pointerFields(event, current, movement));
       return;
     }
-    if (cancelled || recognizer !== "tap-swipe") return;
+    if (cancelled) return;
+    if (recognizer === "swipe") {
+      if (movement.distance >= thresholdPx) {
+        emit("swipe", { ...pointerFields(event, current, movement), direction: getSwipeDirection(movement.dx, movement.dy) });
+      }
+      return;
+    }
+    if (recognizer !== "tap-swipe") return;
     if (movement.distance >= thresholdPx) {
       emit("swipe", { ...pointerFields(event, current, movement), direction: getSwipeDirection(movement.dx, movement.dy) });
     } else {
