@@ -19,6 +19,5 @@
 .runner-overlay { position: absolute; z-index: 6; inset: 0; overflow: auto; border-radius: inherit; background: var(--game-overlay-bg); }
 .runner-overlay[hidden] { display: none; }
 .runner-zone .countdown { z-index: 5; }
-.runner-zone .performance-meter { position: absolute; }
 @media (max-width: 380px) { .runner-cover { padding: 10px; } .runner-speed { top: 12px; right: 12px; font-size: 16px; } }
 @media (prefers-reduced-motion: reduce) { .runner-motorcycle { transition: none; } }

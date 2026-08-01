@@ -79,7 +79,6 @@ function setupRunner({ page, gameZone, game, gameIdx, parsed, durationMs, ghostS
   const cover = gameZone.querySelector("[data-runner-cover]");
   const overlay = gameZone.querySelector("[data-runner-overlay]");
   const countdown = gameZone.querySelector("[data-countdown]");
-  gameZone.append(performanceMeter.element);
 
   try {
     const road = generateRoad({ seed: parsed.seed, limitMS: durationMs, cfg, objects: RUNNER_OBJECTS, svg: RUNNER_SVG });

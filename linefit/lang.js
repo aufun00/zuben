@@ -9,8 +9,6 @@ export const GAME_LANG = {
     operationScore: "落地cell数充能；放置得分与同时消除行列数的平方奖励乘当前能量倍率。",
     board: "LineFit方块棋盘",
     energy: "充能",
-    pieces: "落块",
-    lines: "消除",
     resultReasons: { TIME_UP: "时间结束", NO_MOVES: "所有候选都无处可放" },
   },
   en: {
@@ -23,8 +21,6 @@ export const GAME_LANG = {
     operationScore: "Placed cells charge energy. Placement points and the squared multi-line bonus use the current energy multiplier.",
     board: "LineFit block board",
     energy: "Energy",
-    pieces: "Pieces",
-    lines: "Lines",
     resultReasons: { TIME_UP: "Time up", NO_MOVES: "No remaining piece fits" },
   },
 };

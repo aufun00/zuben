@@ -48,8 +48,6 @@ function setupLineFit({ page, gameZone, game, gameIdx, parsed, durationMs, ghost
   let renderedGhost = null;
   let renderedEnergy = null;
   let renderedMultiplier = null;
-  let renderedPieces = null;
-  let renderedLines = null;
 
   gameZone.classList.add("linefit-zone");
   gameZone.innerHTML = `
@@ -61,10 +59,6 @@ function setupLineFit({ page, gameZone, game, gameIdx, parsed, durationMs, ghost
           <span class="linefit-energy-fill" data-energy-fill></span>
         </div>
         <strong class="linefit-energy-multiplier" data-energy-multiplier>×1.0</strong>
-      </div>
-      <div class="linefit-hud">
-        <span><span data-pieces-label></span><strong data-placement-count>0</strong></span>
-        <span><span data-lines-label></span><strong data-line-count>0</strong></span>
       </div>
       <div class="linefit-board" data-linefit-board aria-hidden="true">
         <div class="linefit-grid" data-linefit-grid></div>
@@ -87,7 +81,6 @@ function setupLineFit({ page, gameZone, game, gameIdx, parsed, durationMs, ghost
   const overlay = gameZone.querySelector("[data-linefit-overlay]");
   const energyMeter = gameZone.querySelector(".linefit-energy");
   applyEnergyBarConfig(energyMeter);
-  gameZone.append(performanceMeter.element);
 
   try {
     runtime = createLineFitRuntime({
@@ -152,19 +145,6 @@ function setupLineFit({ page, gameZone, game, gameIdx, parsed, durationMs, ghost
       renderedEnergy = snapshot.energy;
       renderedMultiplier = snapshot.scoreMultiplier;
     }
-    const boardMetaChanged = forceChrome || renderedPieces !== snapshot.placementCount || renderedLines !== snapshot.clearedLineCount;
-    if (forceChrome || renderedPieces !== snapshot.placementCount) {
-      gameZone.querySelector("[data-placement-count]").textContent = String(snapshot.placementCount);
-      renderedPieces = snapshot.placementCount;
-    }
-    if (forceChrome || renderedLines !== snapshot.clearedLineCount) {
-      gameZone.querySelector("[data-line-count]").textContent = String(snapshot.clearedLineCount);
-      renderedLines = snapshot.clearedLineCount;
-    }
-    if (boardMetaChanged) {
-      playfield.setAttribute("aria-label", `${activeLocalized.board}. ${activeLocalized.pieces} ${snapshot.placementCount}. ${activeLocalized.lines} ${snapshot.clearedLineCount}.`);
-    }
-
     const button = page.querySelector(".game-button");
     if (phaseChanged || forceChrome) {
       if (snapshot.phase === PHASE_READY) {
@@ -237,8 +217,7 @@ function setupLineFit({ page, gameZone, game, gameIdx, parsed, durationMs, ghost
     gameZone.querySelector("[data-operation-place]").textContent = activeLocalized.operationPlace;
     gameZone.querySelector("[data-operation-batch]").textContent = activeLocalized.operationBatch;
     gameZone.querySelector("[data-operation-score]").textContent = activeLocalized.operationScore;
-    gameZone.querySelector("[data-pieces-label]").textContent = activeLocalized.pieces;
-    gameZone.querySelector("[data-lines-label]").textContent = activeLocalized.lines;
+    playfield.setAttribute("aria-label", activeLocalized.board);
   }
 
   return {

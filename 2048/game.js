@@ -87,7 +87,6 @@ function setup2048({ page, gameZone, game, gameIdx, parsed, durationMs, ghostSco
   const overlay = gameZone.querySelector("[data-2048-overlay]");
   const energyMeter = gameZone.querySelector(".twenty48-energy");
   applyEnergyBarConfig(energyMeter);
-  gameZone.append(performanceMeter.element);
 
   try {
     runtime = create2048Runtime({
