@@ -3,6 +3,7 @@ import { getPreference, isPersistentStorageAvailable, setPreference, subscribeSt
 import { iconMarkup } from "./icons.js";
 import { getAppVersion, subscribeAppVersion } from "./version-state.js";
 import { openModal } from "./modal.js";
+import { clearLocalSiteDataAndExit } from "./site-exit.js";
 
 export function getLanguage() {
   const fallback = navigator.language.toLowerCase().startsWith("zh") ? "zh" : "en";
@@ -35,6 +36,9 @@ export function renderHeader(container, { version, onLanguageChange }) {
     <button class="version-label" type="button" data-unread="${versionUnread}" title="${escapeHTML(strings.version)} ${escapeHTML(activeVersion)}" aria-label="${escapeHTML(strings.version)} ${escapeHTML(activeVersion)}">
       ${iconMarkup(versionUnread ? "unread" : "version", "header-icon")}<span>v${activeVersion}</span>
     </button>
+    <button class="exit-button" type="button" title="${escapeHTML(strings.exit)}" aria-label="${escapeHTML(strings.exit)}">
+      ${iconMarkup("exit", "header-icon")}
+    </button>
   `;
 
   header.querySelector(".brand-button").addEventListener("click", () => {
@@ -49,6 +53,8 @@ export function renderHeader(container, { version, onLanguageChange }) {
   }));
   const languageButton = header.querySelector(".language-button");
   const versionButton = header.querySelector(".version-label");
+  const exitButton = header.querySelector(".exit-button");
+  exitButton.addEventListener("click", () => openExitDialog(exitButton, strings));
   versionButton.addEventListener("click", async () => {
     if (versionButton.disabled) return;
     versionButton.disabled = true;
@@ -80,6 +86,8 @@ export function renderHeader(container, { version, onLanguageChange }) {
       brandButton.setAttribute("aria-label", strings.home);
       brandButton.title = strings.home;
       paintVersion(activeVersion);
+      exitButton.title = strings.exit;
+      exitButton.setAttribute("aria-label", strings.exit);
       if (storageWarning) storageWarning.textContent = strings.storageUnavailable;
       onLanguageChange?.(nextLocale.id);
     },
@@ -120,6 +128,31 @@ export function renderHeader(container, { version, onLanguageChange }) {
     storageWarning?.remove();
   };
   return { language, strings, nickname, cleanup };
+}
+
+function openExitDialog(exitButton, strings) {
+  const backdrop = document.createElement("div");
+  backdrop.className = "modal-backdrop exit-backdrop";
+  backdrop.innerHTML = `
+    <section class="modal-card exit-dialog" role="dialog" aria-labelledby="exit-dialog-title" aria-describedby="exit-dialog-body">
+      <h2 id="exit-dialog-title">${escapeHTML(strings.exitTitle)}</h2>
+      <p id="exit-dialog-body" class="disclaimer">${escapeHTML(strings.exitBody)}</p>
+      <div class="modal-actions">
+        <button class="action-button cancel" type="button">${escapeHTML(strings.cancel)}</button>
+        <button class="action-button danger confirm" type="button">${escapeHTML(strings.confirm)}</button>
+      </div>
+    </section>
+  `;
+  const cancelButton = backdrop.querySelector(".cancel");
+  const confirmButton = backdrop.querySelector(".confirm");
+  const modal = openModal(backdrop, { initialFocus: cancelButton, returnFocus: exitButton, closeOnBackdrop: false });
+  cancelButton.addEventListener("click", () => modal.close(), { signal: modal.signal });
+  confirmButton.addEventListener("click", async () => {
+    cancelButton.disabled = true;
+    confirmButton.disabled = true;
+    confirmButton.textContent = strings.exitWorking;
+    await clearLocalSiteDataAndExit();
+  }, { signal: modal.signal });
 }
 
 async function openVersionInfo(versionButton, strings) {

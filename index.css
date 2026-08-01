@@ -157,6 +157,9 @@ button { color: inherit; }
 .version-label[data-unread="true"] .header-icon { color: var(--danger); }
 .version-label:disabled { cursor: wait; }
 .version-label .header-icon { width: 14px; height: 14px; }
+.exit-button { display: grid; flex: 0 0 34px; width: 34px; height: 34px; padding: 0; place-items: center; border: 0; border-radius: 10px; background: transparent; color: var(--quiet); cursor: pointer; }
+.exit-button:hover, .exit-button:focus-visible { background: var(--surface-2); color: var(--danger); }
+.exit-button .header-icon { width: 18px; height: 18px; }
 
 .language-picker { position: relative; display: inline-flex; }
 .language-menu {

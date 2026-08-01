@@ -2,8 +2,12 @@ import { GAME_LIST } from "./game-list.js";
 import { parseICode } from "./icode.js";
 import { SCORE_MAX } from "./protocol-constants.js";
 
-export const MAX_CHALLENGES = 100;
-export const MAX_CHALLENGE_MEMO_LENGTH = 200;
+export const CHALLENGE_CFG = Object.freeze({
+  MaxEntries: 30,
+  MaxMemoLength: 200,
+});
+export const MAX_CHALLENGES = CHALLENGE_CFG.MaxEntries;
+export const MAX_CHALLENGE_MEMO_LENGTH = CHALLENGE_CFG.MaxMemoLength;
 
 const MAX_DATE_MS = 8_640_000_000_000_000;
 

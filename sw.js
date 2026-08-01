@@ -1,11 +1,11 @@
-const VERSION = "0.0.42";
+const VERSION = "0.0.43";
 const CACHE_NAME = `zuben-${VERSION}`;
 const NETWORK_TIMEOUT_MS = 3000;
 const CORE = [
   "./", "./index.html", "./index.js", "./index.css", "./homepage.js", "./homepage.css",
   "./lang.js", "./version.json", "./icon.svg", "./manifest.webmanifest",
   "./common/game-list.js", "./common/storage.js", "./common/version-state.js", "./common/protocol-constants.js", "./common/icode.js", "./common/rng.js", "./common/qr.js", "./common/icons.js",
-  "./common/header.js", "./common/modal.js", "./common/timeout.js", "./common/challenges.js", "./common/share.js", "./common/share-dialog.js", "./common/result-code.js", "./common/game-result.js",
+  "./common/header.js", "./common/modal.js", "./common/site-exit.js", "./common/timeout.js", "./common/challenges.js", "./common/share.js", "./common/share-dialog.js", "./common/result-code.js", "./common/game-result.js",
   "./common/game-flow-config.js", "./common/game-controller.js", "./common/gesture-input.js", "./common/performance-meter.js", "./common/game-shell.js", "./common/game-shell.css",
   "./match3/config.js", "./match3/engine.js", "./match3/game.js", "./match3/game.css", "./match3/lang.js",
   "./stacker/config.js", "./stacker/engine.js", "./stacker/game.js", "./stacker/game.css", "./stacker/lang.js", "./stacker/mesh.js",
