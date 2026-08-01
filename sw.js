@@ -1,4 +1,4 @@
-const VERSION = "0.0.36";
+const VERSION = "0.0.40";
 const CACHE_NAME = `zuben-${VERSION}`;
 const NETWORK_TIMEOUT_MS = 3000;
 const CORE = [
@@ -11,6 +11,7 @@ const CORE = [
   "./stacker/config.js", "./stacker/engine.js", "./stacker/game.js", "./stacker/game.css", "./stacker/lang.js", "./stacker/mesh.js",
   "./runner/config.js", "./runner/road.js", "./runner/runtime.js", "./runner/render.js", "./runner/svg.js", "./runner/game.js", "./runner/game.css", "./runner/lang.js",
   "./2048/config.js", "./2048/engine.js", "./2048/runtime.js", "./2048/render.js", "./2048/game.js", "./2048/game.css", "./2048/lang.js",
+  "./linefit/config.js", "./linefit/engine.js", "./linefit/energy.js", "./linefit/runtime.js", "./linefit/render.js", "./linefit/game.js", "./linefit/game.css", "./linefit/lang.js",
 ];
 const CORE_URLS = new Set(CORE.map((path) => new URL(path, self.location.href).href));
 
