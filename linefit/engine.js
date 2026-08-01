@@ -4,18 +4,14 @@ export function validateLineFitConfig(cfg, shapes) {
   if (cfg.BoardSize < 2 || cfg.TraySize !== 3 || cfg.TrayGridSize < 1) fail("dimensions");
   if (!Number.isSafeInteger(cfg.PrepareMS) || cfg.PrepareMS < 0) fail("PrepareMS");
   for (const key of [
-    "ClearMS", "DragThresholdPx", "DragLiftCells", "PlaceScorePerCell", "LineScoreBase",
+    "ClearMS", "DragThresholdPx", "DragLiftCells", "PlaceScorePerCell", "LineScoreMultiplier",
     "EnergyInitial", "EnergyPerCell", "EnergyDecayMS", "EnergyDecayDelta",
     "EnergyMultiplierDivisor", "EnergyMultiplierMinimum",
     "EnergyGreenThreshold", "EnergyOrangeThreshold", "EnergyPurpleThreshold",
-    "EnergyBarHeightPx", "EnergyBarMultiplierWidthPx", "EnergyBarTransitionMS",
     "PumpWaitMS", "RenderWaitMS", "PerformanceWindowMS",
   ]) positiveNumber(cfg, key);
   if (!(cfg.EnergyGreenThreshold < cfg.EnergyOrangeThreshold &&
     cfg.EnergyOrangeThreshold < cfg.EnergyPurpleThreshold)) fail("energy thresholds");
-  for (const key of ["EnergyBarIdleColor", "EnergyBarGreenColor", "EnergyBarOrangeColor", "EnergyBarPurpleColor"]) {
-    if (typeof cfg[key] !== "string" || cfg[key].trim() === "") fail(key);
-  }
   validateShapes(shapes, cfg.TrayGridSize);
   return true;
 }
@@ -131,7 +127,10 @@ export function calculateRawScore(cellCount, clearCount, cfg) {
   if (!Number.isSafeInteger(cellCount) || cellCount < 1 || !Number.isSafeInteger(clearCount) || clearCount < 0) {
     throw new RangeError("cellCount and clearCount must be nonnegative integers");
   }
-  const score = cellCount * cfg.PlaceScorePerCell + cfg.LineScoreBase * clearCount ** 2;
+  const placementScore = cellCount * cfg.PlaceScorePerCell;
+  const score = clearCount === 0
+    ? placementScore
+    : placementScore * cfg.LineScoreMultiplier * clearCount ** 2;
   if (!Number.isSafeInteger(score)) fail("raw score");
   return score;
 }

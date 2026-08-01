@@ -48,10 +48,10 @@ export const cfg = Object.freeze({
   DragLiftCells: 1.15,         // Full-size piece floats this many cells above the pointer.
 
   PlaceScorePerCell: 1,
-  LineScoreBase: 10,
+  LineScoreMultiplier: 10,
 
   EnergyInitial: 50,
-  EnergyPerCell: 5,
+  EnergyPerCell: 10,
   EnergyDecayMS: 200,
   EnergyDecayDelta: 1,
   EnergyMultiplierDivisor: 50,
@@ -59,14 +59,6 @@ export const cfg = Object.freeze({
   EnergyGreenThreshold: 100,
   EnergyOrangeThreshold: 200,
   EnergyPurpleThreshold: 400,
-  EnergyBarIdleColor: "#81909b",
-  EnergyBarGreenColor: "#35d477",
-  EnergyBarOrangeColor: "#ff9f35",
-  EnergyBarPurpleColor: "#b76cff",
-  EnergyBarHeightPx: 12,
-  EnergyBarMultiplierWidthPx: 48,
-  EnergyBarTransitionMS: 90,
-
   PumpWaitMS: 10,
   RenderWaitMS: 32,
   PerformanceWindowMS: 2_000,

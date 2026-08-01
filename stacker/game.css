@@ -1,4 +1,4 @@
-.stacker-zone { display: grid; min-height: min(690px, calc(100dvh - 142px)); align-content: stretch; padding: 0; user-select: none; }
+.stacker-zone { display: grid; min-height: 0; align-content: stretch; padding: 0; user-select: none; }
 .stacker-playfield { position: relative; display: grid; min-height: inherit; cursor: pointer; }
 .stacker-playfield:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
 .stacker-scene { display: block; width: 100%; height: 100%; min-height: 560px; overflow: visible; background: radial-gradient(circle at 50% 38%, var(--stacker-scene-glow), var(--stacker-scene-edge) 64%); }

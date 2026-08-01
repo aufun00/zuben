@@ -22,6 +22,7 @@ export function renderGameShell(mount, { game, gameIdx, params, version, gameStr
   addEventListener("popstate", dispose, { once: true });
   const headerBinding = renderHeader(mount, {
     version,
+    showPerformanceMeter: true,
     onLanguageChange: (nextLanguage) => languageBinding?.(nextLanguage),
   });
   const { language, strings } = headerBinding;
@@ -49,11 +50,11 @@ export function renderGameShell(mount, { game, gameIdx, params, version, gameStr
   page.innerHTML = `
     <section class="game-bar" aria-label="${strings.gameStatus}">
       <div class="status-metric time-metric" title="${strings.time}">
-        ${iconMarkup("clock", "status-icon")}<span class="visually-hidden">${strings.time}</span><strong data-time>${formatRemaining(duration * 1000)}</strong>
+        <span class="visually-hidden">${strings.time}</span><strong data-time>${formatRemaining(duration * 1000)}</strong>
       </div>
       <button class="game-button" type="button" aria-label="${strings.start}" title="${strings.start}">${iconMarkup("play", "game-button-icon")}</button>
       <div class="status-metric score-metric" title="${strings.score}">
-        ${iconMarkup("score", "status-icon")}<span class="visually-hidden">${strings.score}</span><strong data-score>0</strong>
+        <span class="visually-hidden">${strings.score}</span><strong data-score>0</strong>
       </div>
       <div class="tug-bar" data-tug role="img">
         <span class="tug-side tug-self"><i class="tug-fill tug-self-fill"></i></span>
@@ -61,7 +62,10 @@ export function renderGameShell(mount, { game, gameIdx, params, version, gameStr
         <span class="tug-side tug-ghost"><i class="tug-fill tug-ghost-fill"></i></span>
       </div>
       <div class="status-metric ghost-metric" title="${strings.ghost}">
-        ${iconMarkup("ghost", "status-icon")}<span class="visually-hidden">${strings.ghost}</span><strong data-ghost>${ghostScore}</strong>
+        <span class="visually-hidden">${strings.ghost}</span><strong data-ghost>${ghostScore}</strong>
+      </div>
+      <div class="game-bar-charge" data-game-bar-charge data-charge-tier="idle" aria-hidden="true">
+        <span class="game-bar-charge-fill"></span>
       </div>
     </section>
     <section class="game-zone" data-game-zone>
@@ -71,7 +75,7 @@ export function renderGameShell(mount, { game, gameIdx, params, version, gameStr
   mount.append(page);
   updateTugBar(page, 0, ghostScore, strings, 0, duration * 1000);
   if (setupGame) {
-    const performanceMeter = createPerformanceMeter(page, performanceMeterCfg);
+    const performanceMeter = createPerformanceMeter(headerBinding.performanceMeterHost, performanceMeterCfg);
     const binding = setupGame({
       page,
       gameZone: page.querySelector("[data-game-zone]"),

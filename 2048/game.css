@@ -1,5 +1,5 @@
 .twenty48-zone {
-  min-height: min(690px, calc(100dvh - 142px));
+  min-height: 0;
   padding: 0;
   overflow: hidden;
   background:

@@ -5,11 +5,12 @@ import {
   setControlButton,
   updateTugBar,
 } from "../common/game-shell.js";
+import { updateGameBarCharge } from "../common/game-bar-charge.js";
 import { createGameResultView } from "../common/game-result.js";
 import { bindGameInput } from "../common/gesture-input.js";
 import { cfg, LINEFIT_PERFORMANCE_CFG, LINEFIT_SHAPES } from "./config.js";
 import { GAME_LANG } from "./lang.js";
-import { createLineFitRenderer, getEnergyProgress } from "./render.js";
+import { createLineFitRenderer } from "./render.js";
 import {
   OPERATION_IDLE,
   PHASE_ENDED,
@@ -47,19 +48,10 @@ function setupLineFit({ page, gameZone, game, gameIdx, parsed, durationMs, ghost
   let renderedScore = null;
   let renderedGhost = null;
   let renderedEnergy = null;
-  let renderedMultiplier = null;
 
   gameZone.classList.add("linefit-zone");
   gameZone.innerHTML = `
     <div class="linefit-playfield" data-linefit-playfield role="application" tabindex="-1">
-      <div class="linefit-energy" data-energy-tier="idle">
-        <div class="linefit-energy-track" data-energy-track role="progressbar" aria-valuemin="0" aria-valuemax="${cfg.EnergyPurpleThreshold}">
-          <span class="linefit-energy-marker linefit-energy-marker-green"></span>
-          <span class="linefit-energy-marker linefit-energy-marker-orange"></span>
-          <span class="linefit-energy-fill" data-energy-fill></span>
-        </div>
-        <strong class="linefit-energy-multiplier" data-energy-multiplier>×1.0</strong>
-      </div>
       <div class="linefit-board" data-linefit-board aria-hidden="true">
         <div class="linefit-grid" data-linefit-grid></div>
       </div>
@@ -79,8 +71,6 @@ function setupLineFit({ page, gameZone, game, gameIdx, parsed, durationMs, ghost
   const tray = gameZone.querySelector("[data-linefit-tray]");
   const cover = gameZone.querySelector("[data-linefit-cover]");
   const overlay = gameZone.querySelector("[data-linefit-overlay]");
-  const energyMeter = gameZone.querySelector(".linefit-energy");
-  applyEnergyBarConfig(energyMeter);
 
   try {
     runtime = createLineFitRuntime({
@@ -133,17 +123,15 @@ function setupLineFit({ page, gameZone, game, gameIdx, parsed, durationMs, ghost
       renderedScore = snapshot.score;
       renderedGhost = shownGhost;
     }
-    if (forceChrome || renderedEnergy !== snapshot.energy || renderedMultiplier !== snapshot.scoreMultiplier) {
-      const track = gameZone.querySelector("[data-energy-track]");
-      const multiplierText = `×${snapshot.scoreMultiplier.toFixed(1)}`;
-      energyMeter.dataset.energyTier = energyTier(snapshot.energy);
-      energyMeter.style.setProperty("--energy-progress", String(getEnergyProgress(snapshot.energy)));
-      track.setAttribute("aria-label", activeLocalized.energy);
-      track.setAttribute("aria-valuenow", String(snapshot.energy));
-      track.setAttribute("aria-valuetext", `${snapshot.energy}, ${multiplierText}`);
-      gameZone.querySelector("[data-energy-multiplier]").textContent = multiplierText;
+    if (forceChrome || renderedEnergy !== snapshot.energy) {
+      updateGameBarCharge(page, {
+        value: snapshot.energy,
+        greenThreshold: cfg.EnergyGreenThreshold,
+        orangeThreshold: cfg.EnergyOrangeThreshold,
+        purpleThreshold: cfg.EnergyPurpleThreshold,
+        label: activeLocalized.energy,
+      });
       renderedEnergy = snapshot.energy;
-      renderedMultiplier = snapshot.scoreMultiplier;
     }
     const button = page.querySelector(".game-button");
     if (phaseChanged || forceChrome) {
@@ -255,21 +243,4 @@ function ensureStylesheet() {
   link.rel = "stylesheet";
   link.href = href;
   document.head.append(link);
-}
-
-function energyTier(energy) {
-  if (energy >= cfg.EnergyPurpleThreshold) return "purple";
-  if (energy >= cfg.EnergyOrangeThreshold) return "orange";
-  if (energy >= cfg.EnergyGreenThreshold) return "green";
-  return "idle";
-}
-
-function applyEnergyBarConfig(element) {
-  element.style.setProperty("--energy-idle-color", cfg.EnergyBarIdleColor);
-  element.style.setProperty("--energy-green-color", cfg.EnergyBarGreenColor);
-  element.style.setProperty("--energy-orange-color", cfg.EnergyBarOrangeColor);
-  element.style.setProperty("--energy-purple-color", cfg.EnergyBarPurpleColor);
-  element.style.setProperty("--energy-bar-height", `${cfg.EnergyBarHeightPx}px`);
-  element.style.setProperty("--energy-multiplier-width", `${cfg.EnergyBarMultiplierWidthPx}px`);
-  element.style.setProperty("--energy-transition-ms", `${cfg.EnergyBarTransitionMS}ms`);
 }

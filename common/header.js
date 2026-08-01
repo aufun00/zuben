@@ -11,7 +11,7 @@ export function getLanguage() {
   return LOCALES.some((locale) => locale.id === stored) && LANG[stored] ? stored : fallback;
 }
 
-export function renderHeader(container, { version, onLanguageChange }) {
+export function renderHeader(container, { version, onLanguageChange, showPerformanceMeter = false }) {
   let activeVersion = getAppVersion();
   let language = getLanguage();
   let strings = LANG[language];
@@ -28,6 +28,7 @@ export function renderHeader(container, { version, onLanguageChange }) {
       ${iconMarkup("user", "header-icon")}<span>${escapeHTML(nickname)}</span>
     </button>
     <span class="header-spacer"></span>
+    ${showPerformanceMeter ? '<span class="header-performance-meter" data-performance-meter-host></span>' : ""}
     <span class="language-picker">
       <button class="header-button language-button" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="${escapeHTML(strings.selectLanguage)}">
         ${iconMarkup("language", "header-icon")}<span>${locale.code}</span>
@@ -127,7 +128,13 @@ export function renderHeader(container, { version, onLanguageChange }) {
     unsubscribeVersion();
     storageWarning?.remove();
   };
-  return { language, strings, nickname, cleanup };
+  return {
+    language,
+    strings,
+    nickname,
+    performanceMeterHost: header.querySelector("[data-performance-meter-host]"),
+    cleanup,
+  };
 }
 
 function openExitDialog(exitButton, strings) {

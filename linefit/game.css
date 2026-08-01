@@ -1,5 +1,5 @@
 .linefit-zone {
-  min-height: min(720px, calc(100dvh - 142px));
+  min-height: 0;
   padding: 0;
   overflow: hidden;
   background: radial-gradient(circle at 50% 12%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 38%), var(--bg);
@@ -17,39 +17,6 @@
   touch-action: none;
 }
 .linefit-playfield:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: -5px; }
-.linefit-energy {
-  --energy-color: var(--energy-idle-color);
-  --energy-glow: color-mix(in srgb, var(--energy-color), transparent 35%);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) var(--energy-multiplier-width);
-  width: min(94vw, 540px);
-  gap: 10px;
-  align-items: center;
-}
-.linefit-energy[data-energy-tier="green"] { --energy-color: var(--energy-green-color); }
-.linefit-energy[data-energy-tier="orange"] { --energy-color: var(--energy-orange-color); }
-.linefit-energy[data-energy-tier="purple"] { --energy-color: var(--energy-purple-color); }
-.linefit-energy-track {
-  position: relative;
-  height: var(--energy-bar-height);
-  border: 1px solid color-mix(in srgb, var(--energy-color), var(--border) 52%);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--panel), #000 12%);
-  box-shadow: inset 0 1px 4px #0007;
-}
-.linefit-energy-marker { position: absolute; z-index: 2; top: 1px; bottom: 1px; width: 1px; background: #ffffff52; pointer-events: none; }
-.linefit-energy-marker-green { left: 33.333%; }
-.linefit-energy-marker-orange { left: 66.667%; }
-.linefit-energy-fill {
-  position: absolute;
-  inset: 1px auto 1px 1px;
-  width: calc((100% - 2px) * var(--energy-progress));
-  border-radius: 999px;
-  background: linear-gradient(90deg, color-mix(in srgb, var(--energy-color), #fff 12%), var(--energy-color));
-  box-shadow: 0 0 8px var(--energy-glow);
-  transition: width var(--energy-transition-ms) linear, background-color var(--energy-transition-ms) linear;
-}
-.linefit-energy-multiplier { color: var(--energy-color); font-size: 20px; font-variant-numeric: tabular-nums; text-align: right; text-shadow: 0 0 10px var(--energy-glow); }
 .linefit-board {
   --board-size: 8;
   --board-gap: clamp(3px, .8vw, 6px);
@@ -94,9 +61,9 @@
   .linefit-cover { padding: 10px; }
 }
 @media (orientation: landscape) and (max-height: 560px) {
-  .linefit-playfield { grid-template-columns: minmax(220px, 52vh) minmax(230px, 1fr); grid-template-rows: auto auto; column-gap: 18px; }
-  .linefit-energy, .linefit-tray { grid-column: 2; width: min(44vw, 430px); }
-  .linefit-board { grid-column: 1; grid-row: 1 / 3; width: min(88vh, 48vw); }
+  .linefit-playfield { grid-template-columns: minmax(220px, 52vh) minmax(230px, 1fr); grid-template-rows: 1fr; column-gap: 18px; }
+  .linefit-tray { grid-column: 2; grid-row: 1; width: min(44vw, 430px); }
+  .linefit-board { grid-column: 1; grid-row: 1; width: min(88vh, 48vw); }
 }
 @media (prefers-reduced-motion: reduce) {
   .linefit-cell.is-clearing, .linefit-cell.is-new { animation: none; }
