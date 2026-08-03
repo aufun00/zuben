@@ -1,6 +1,6 @@
 let activeModal = null;
 
-export function openModal(backdrop, { initialFocus, returnFocus = document.activeElement, closeOnBackdrop = true, onBeforeClose } = {}) {
+export function openModal(backdrop, { initialFocus, returnFocus = document.activeElement, closeOnBackdrop = true, onBeforeClose, host = document.body } = {}) {
   closeActiveModal({ restoreFocus: false });
   const dialog = backdrop.querySelector('[role="dialog"]');
   if (!dialog) throw new Error("Modal backdrop must contain a dialog");
@@ -49,7 +49,7 @@ export function openModal(backdrop, { initialFocus, returnFocus = document.activ
     }
   }, { signal: controller.signal });
 
-  document.body.append(backdrop);
+  host.append(backdrop);
   activeModal = { backdrop, close };
   const target = initialFocus ?? getFocusable(dialog)[0] ?? dialog;
   if (!target.hasAttribute("tabindex") && target === dialog) target.tabIndex = -1;

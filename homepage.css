@@ -92,7 +92,7 @@
 .empty-state { display: grid; justify-items: center; gap: 12px; }
 .empty-state p { margin: 0; }
 
-.challenge-share-dialog { position: relative; width: min(100%, 420px); padding: 18px; text-align: center; }
+.challenge-share-dialog { position: relative; width: min(100%, 420px); min-width: 0; max-width: 100%; padding: 18px; text-align: center; }
 .challenge-share-dialog h2 { margin: 0 34px 14px; }
 .share-dialog-close { position: absolute; top: 11px; right: 11px; display: grid; width: 34px; height: 34px; padding: 0; place-items: center; border: 1px solid var(--line); border-radius: 50%; background: var(--surface-2); color: var(--text); cursor: pointer; font-size: 23px; line-height: 1; }
 .share-dialog-qr { width: min(62vw, 224px); margin: 0 auto; padding: 10px; border-radius: 18px; background: #fff; }
@@ -101,12 +101,8 @@
 .share-dialog-identity time { color: var(--muted); font-size: 12px; }
 .share-dialog-copy { margin: 0; overflow-wrap: anywhere; color: var(--text); font-size: clamp(17px, 4.8vw, 18px); font-weight: 600; line-height: 1.35; text-wrap: balance; }
 .share-dialog-memo { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 11px; background: var(--bg); color: var(--text); }
-.share-dialog-actions { display: grid; grid-template-columns: 1fr 48px 1fr; gap: 8px; margin-top: 14px; }
-.share-dialog-actions .action-button { display: flex; min-width: 0; padding-inline: 8px; align-items: center; justify-content: center; gap: 7px; text-decoration: none; }
-.share-dialog-button-icon { display: block; flex: 0 0 20px; width: 20px; height: 20px; color: currentColor; }
-.share-dialog-button-icon svg { display: block; width: 100%; height: 100%; }
-.share-dialog-action-icon { display: block; width: 24px; height: 24px; color: var(--accent); }
-.share-dialog-action-icon svg { display: block; width: 100%; height: 100%; }
+.share-dialog-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+.share-dialog-action { display: grid; min-width: 0; padding-inline: 8px; place-items: center; text-decoration: none; }
 
 .toast { position: fixed; z-index: 200; left: 50%; bottom: max(24px, env(safe-area-inset-bottom)); transform: translateX(-50%); padding: 10px 16px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-2); box-shadow: 0 10px 30px #0007; }
 

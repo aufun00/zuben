@@ -1,12 +1,11 @@
-import { iconMarkup } from "./icons.js";
 import { openModal } from "./modal.js";
 import { renderQr } from "./qr.js";
-import { buildChallengeSharePayload, copyText, shareContent } from "./share.js";
+import { buildChallengeSharePayload, shareContent } from "./share.js";
 import { formatTime } from "./challenges.js";
 import { MAX_CHALLENGE_MEMO_LENGTH } from "./storage.js";
 
 export function openChallengeShareDialog({
-  challenge, gameIdx, gameDisplayName, nickname, language, strings, returnFocus, onMemoChange,
+  challenge, gameIdx, gameDisplayName, nickname, language, strings, returnFocus, onMemoChange, modalHost,
 }) {
   const { text, url } = buildChallengeSharePayload({
     nickname,
@@ -30,9 +29,8 @@ export function openChallengeShareDialog({
       </div>
       ${challenge.memo === undefined ? "" : `<input class="share-dialog-memo" type="text" maxlength="${MAX_CHALLENGE_MEMO_LENGTH}" aria-label="${escapeHTML(strings.memo)}" value="${escapeHTML(challenge.memo)}">`}
       <div class="share-dialog-actions">
-        <button class="action-button" type="button" data-copy>${iconMarkup("copy", "share-dialog-button-icon")}<span>${escapeHTML(strings.copy)}</span></button>
-        <a class="action-button share-dialog-open" href="${escapeHTML(url)}" target="_blank" rel="noopener" aria-label="${escapeHTML(strings.openGameNewTab)}">${iconMarkup("gamepad", "share-dialog-action-icon")}</a>
-        <button class="action-button primary" type="button" data-native-share>${iconMarkup("share", "share-dialog-button-icon")}<span>${escapeHTML(strings.share)}</span></button>
+        <a class="share-dialog-action share-dialog-open" href="${escapeHTML(url)}" target="_blank" rel="noopener">${escapeHTML(strings.startInNewTab)}</a>
+        <button class="share-dialog-action" type="button" data-native-share>${escapeHTML(strings.shareMyScore)}</button>
       </div>
     </section>
   `;
@@ -52,9 +50,8 @@ export function openChallengeShareDialog({
     committedMemo = typeof persisted === "string" ? persisted : value;
     memo.value = committedMemo;
   };
-  const modal = openModal(backdrop, { initialFocus: closeButton, returnFocus, onBeforeClose: commitMemo });
+  const modal = openModal(backdrop, { initialFocus: closeButton, returnFocus, onBeforeClose: commitMemo, host: modalHost });
   closeButton.addEventListener("click", () => modal.close(), { signal: modal.signal });
-  backdrop.querySelector("[data-copy]").addEventListener("click", () => copyText(`${text}\n${url}`, strings), { signal: modal.signal });
   backdrop.querySelector("[data-native-share]").addEventListener("click", async (event) => {
     const button = event.currentTarget;
     button.disabled = true;

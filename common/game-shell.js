@@ -6,13 +6,16 @@ import { SCORE_MAX } from "./protocol-constants.js";
 import { LANG } from "../lang.js";
 import { PHASE_ENDED, PHASE_INTRO, PHASE_PAUSED, PHASE_PREPARING, PHASE_RUNNING, PHASE_SETTLING } from "./game-controller.js";
 import { createPerformanceMeter } from "./performance-meter.js";
+import { createGameBarTour } from "./game-bar-tour.js";
 
 export function renderGameShell(mount, { game, gameIdx, params, version, gameStrings, setupGame, performanceMeterCfg }) {
   mount.replaceChildren();
   let cleanup = () => {};
   let cleanupHeader = () => {};
+  let tourBinding = null;
   let languageBinding = null;
   const dispose = () => {
+    tourBinding?.destroy();
     cleanup();
     cleanupHeader();
     removeEventListener("zuben:navigate-home", dispose);
@@ -46,13 +49,13 @@ export function renderGameShell(mount, { game, gameIdx, params, version, gameStr
   const duration = game.durs[parsed.durIdx];
   const ghostScore = readResultScore(params, game.gameID, parsed.code);
   const page = document.createElement("main");
-  page.className = "game-page";
+  page.className = "game-page game-page-fixed-ui";
   page.innerHTML = `
     <section class="game-bar" aria-label="${strings.gameStatus}">
       <div class="status-metric time-metric" title="${strings.time}">
         <span class="visually-hidden">${strings.time}</span><strong data-time>${formatRemaining(duration * 1000)}</strong>
       </div>
-      <button class="game-button" type="button" aria-label="${strings.start}" title="${strings.start}">${iconMarkup("play", "game-button-icon")}</button>
+      <button class="game-button" type="button" data-control-state="play" aria-label="${strings.start}" title="${strings.start}">${strings.start}</button>
       <div class="status-metric score-metric" title="${strings.score}">
         <span class="visually-hidden">${strings.score}</span><strong data-score>0</strong>
       </div>
@@ -74,6 +77,7 @@ export function renderGameShell(mount, { game, gameIdx, params, version, gameStr
   `;
   mount.append(page);
   updateTugBar(page, 0, ghostScore, strings, 0, duration * 1000);
+  tourBinding = createGameBarTour(page, strings);
   if (setupGame) {
     const performanceMeter = createPerformanceMeter(headerBinding.performanceMeterHost, performanceMeterCfg);
     const binding = setupGame({
@@ -95,6 +99,7 @@ export function renderGameShell(mount, { game, gameIdx, params, version, gameStr
         const nextStrings = LANG[nextLanguage] ?? LANG.en;
         const nextLocalized = gameStrings[nextLanguage] ?? gameStrings.en;
         updateGameChromeLanguage(page, nextStrings);
+        tourBinding?.setLanguage(nextStrings);
         binding.setLanguage?.({ language: nextLanguage, strings: nextStrings, localized: nextLocalized });
       };
     } else {
@@ -178,8 +183,9 @@ function connectClock(page, durationSeconds, strings) {
   });
 }
 
-export function setControlButton(button, icon, label) {
-  button.innerHTML = iconMarkup(icon, "game-button-icon");
+export function setControlButton(button, state, label) {
+  button.textContent = label;
+  button.dataset.controlState = state;
   button.setAttribute("aria-label", label);
   button.title = label;
 }

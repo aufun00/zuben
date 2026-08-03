@@ -66,6 +66,7 @@ export function createGameResultView({ overlay, gameIdx, game, parsed, result, g
       language: activeLanguage,
       strings: activeStrings,
       returnFocus: scoreButton,
+      modalHost: overlay,
     });
   }
 
@@ -87,6 +88,7 @@ export function createGameResultView({ overlay, gameIdx, game, parsed, result, g
       language: activeLanguage,
       strings: activeStrings,
       returnFocus: challengeButton,
+      modalHost: overlay,
       onMemoChange(value) {
         const entries = loadChallenges();
         const entry = entries.find((item) => item.gameID === resultChallenge.gameID && item.iCode === resultChallenge.iCode);

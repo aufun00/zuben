@@ -26,6 +26,7 @@
   --tug-track: #0b0d14;
   --tug-line: #3a4057;
   --focus-ring: #fff;
+  --result-score: #38cfff;
   --stacker-scene-glow: #2c3450;
   --stacker-scene-edge: #11141f;
   --stacker-chip-bg: #0c0f18bb;
@@ -60,6 +61,7 @@
     --tug-track: #dbe5e1;
     --tug-line: #80938b;
     --focus-ring: #14211b;
+    --result-score: #075fce;
     --stacker-scene-glow: #dce9e4;
     --stacker-scene-edge: #bfcfc8;
     --stacker-chip-bg: #ffffffd9;
@@ -91,6 +93,8 @@ button { color: inherit; }
 
 #app { min-height: 100dvh; }
 #app:has(> .game-page) { display: grid; height: 100dvh; min-height: 0; grid-template-rows: auto minmax(0, 1fr); }
+#app:has(> .game-page-fixed-ui) { width: 360px; height: 648px; min-height: 648px; margin-inline: auto; grid-template-rows: 48px 600px; aspect-ratio: 5 / 9; zoom: min(1, calc(100vw / 360px)); }
+#app:has(> .game-page-fixed-ui) > .app-header { height: 48px; min-height: 48px; }
 .storage-warning { padding: 8px 14px; border-bottom: 1px solid var(--danger); background: color-mix(in srgb, var(--danger), transparent 86%); color: var(--text); text-align: center; font-size: 12px; }
 
 .app-header {
@@ -202,6 +206,7 @@ button { color: inherit; }
   place-items: center;
   align-items: safe center;
   padding: 20px;
+  overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
   background: var(--backdrop);

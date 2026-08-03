@@ -17,15 +17,11 @@ export function validate2048Config(cfg) {
     "EnergyInitial", "EnergyChargeMultiplier", "EnergyDecayMS", "EnergyDecayDelta",
     "EnergyGreenThreshold", "EnergyOrangeThreshold", "EnergyPurpleThreshold",
     "ScoreEnergyDivisor",
-    "EnergyBarHeightPx", "EnergyBarMultiplierWidthPx", "EnergyBarArcMS", "EnergyBarTransitionMS",
   ]) {
     if (!Number.isSafeInteger(cfg[key]) || cfg[key] <= 0) fail(key);
   }
   if (!(cfg.EnergyGreenThreshold < cfg.EnergyOrangeThreshold &&
     cfg.EnergyOrangeThreshold < cfg.EnergyPurpleThreshold)) fail("energy thresholds");
-  for (const key of ["EnergyBarIdleColor", "EnergyBarGreenColor", "EnergyBarOrangeColor", "EnergyBarPurpleColor"]) {
-    if (typeof cfg[key] !== "string" || cfg[key].trim() === "") fail(key);
-  }
   for (const key of ["SwipeThresholdPx", "MoveMS", "PumpWaitMS", "RenderWaitMS", "PerformanceWindowMS"]) {
     if (!Number.isFinite(cfg[key]) || cfg[key] <= 0) fail(key);
   }

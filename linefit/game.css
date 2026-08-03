@@ -19,28 +19,28 @@
 .linefit-playfield:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: -5px; }
 .linefit-board {
   --board-size: 8;
-  --board-gap: clamp(3px, .8vw, 6px);
-  width: min(94vw, 540px, calc(100dvh - 335px));
+  --board-gap: clamp(3px, .8cqw, 6px);
+  width: min(94%, 540px, calc(var(--game-ui-height) - 335px));
   aspect-ratio: 1;
-  padding: clamp(5px, 1.2vw, 8px);
+  padding: clamp(5px, 1.2cqw, 8px);
   border-radius: 14px;
   background: #52606c;
   box-shadow: 0 16px 44px #0005;
 }
 .linefit-grid { display: grid; width: 100%; height: 100%; grid-template-columns: repeat(var(--board-size), 1fr); grid-template-rows: repeat(var(--board-size), 1fr); gap: var(--board-gap); }
-.linefit-cell { min-width: 0; min-height: 0; border-radius: clamp(3px, .8vw, 6px); background: color-mix(in srgb, var(--panel) 72%, #71808c); box-shadow: inset 0 1px 2px #fff1; }
+.linefit-cell { min-width: 0; min-height: 0; border-radius: clamp(3px, .8cqw, 6px); background: color-mix(in srgb, var(--panel) 72%, #71808c); box-shadow: inset 0 1px 2px #fff1; }
 .linefit-cell.is-filled { background: linear-gradient(145deg, #aeb7bd, #68747d); box-shadow: inset 0 1px 2px #fff6, 0 2px 5px #0004; }
 .linefit-piece-preview .is-piece, .linefit-floating .is-piece { background: linear-gradient(145deg, color-mix(in srgb, var(--accent), #fff 22%), var(--accent)); box-shadow: inset 0 1px 2px #fff7, 0 2px 5px #0004; }
 .linefit-cell.is-preview { background: color-mix(in srgb, var(--accent) 54%, transparent); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent), #fff 28%); }
 .linefit-cell.is-clearing { animation: linefit-clear 300ms ease-in both; }
 .linefit-cell.is-new:not(.is-clearing) { animation: linefit-place 160ms ease-out; }
-.linefit-tray { --tray-grid-size: 5; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: min(94vw, 540px); gap: clamp(6px, 2vw, 14px); }
+.linefit-tray { --tray-grid-size: 5; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: min(94%, 540px); gap: clamp(6px, 2cqw, 14px); }
 .linefit-tray-slot { display: grid; place-items: center; min-width: 0; aspect-ratio: 1; padding: 5px; border: 1px solid color-mix(in srgb, var(--border), transparent 20%); border-radius: 12px; background: color-mix(in srgb, var(--panel) 78%, transparent); touch-action: none; cursor: grab; }
 .linefit-tray-slot:not(:disabled):active { cursor: grabbing; }
 .linefit-tray-slot.is-dragging { opacity: .25; }
 .linefit-tray-slot.is-used { opacity: .18; }
 .linefit-tray-slot.is-dead { opacity: .42; filter: grayscale(.8); }
-.linefit-piece-preview { display: grid; width: min(100%, 140px); aspect-ratio: 1; grid-template-columns: repeat(var(--tray-grid-size), 1fr); grid-template-rows: repeat(var(--tray-grid-size), 1fr); gap: clamp(2px, .5vw, 4px); pointer-events: none; }
+.linefit-piece-preview { display: grid; width: min(100%, 140px); aspect-ratio: 1; grid-template-columns: repeat(var(--tray-grid-size), 1fr); grid-template-rows: repeat(var(--tray-grid-size), 1fr); gap: clamp(2px, .5cqw, 4px); pointer-events: none; }
 .linefit-piece-preview i, .linefit-floating i { min-width: 0; min-height: 0; border-radius: 22%; }
 .linefit-floating { position: fixed; z-index: 1000; left: 0; top: 0; display: grid; grid-template-columns: repeat(var(--shape-columns), var(--drag-cell-size)); grid-template-rows: repeat(var(--shape-rows), var(--drag-cell-size)); gap: var(--drag-gap); pointer-events: none; opacity: .72; filter: grayscale(.45); will-change: transform; }
 .linefit-floating.is-valid { opacity: .94; filter: none; }
@@ -54,16 +54,11 @@
 .linefit-overlay[hidden] { display: none; }
 @keyframes linefit-clear { 45% { transform: scale(.82); filter: brightness(1.8); } 100% { transform: scale(.15); opacity: 0; } }
 @keyframes linefit-place { 0% { transform: scale(.55); } 75% { transform: scale(1.08); } }
-@media (max-width: 380px), (max-height: 690px) {
+@container (max-width: 380px) {
   .linefit-playfield { gap: 7px; padding: 8px; }
-  .linefit-board { width: min(94vw, calc(100dvh - 325px)); }
+  .linefit-board { width: min(94%, calc(var(--game-ui-height) - 325px)); }
   .linefit-tray-slot { padding: 3px; }
   .linefit-cover { padding: 10px; }
-}
-@media (orientation: landscape) and (max-height: 560px) {
-  .linefit-playfield { grid-template-columns: minmax(220px, 52vh) minmax(230px, 1fr); grid-template-rows: 1fr; column-gap: 18px; }
-  .linefit-tray { grid-column: 2; grid-row: 1; width: min(44vw, 430px); }
-  .linefit-board { grid-column: 1; grid-row: 1; width: min(88vh, 48vw); }
 }
 @media (prefers-reduced-motion: reduce) {
   .linefit-cell.is-clearing, .linefit-cell.is-new { animation: none; }

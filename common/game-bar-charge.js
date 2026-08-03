@@ -7,11 +7,7 @@ export const GAME_BAR_CHARGE_DEFAULTS = Object.freeze({
 
 export function calculateGameBarChargeProgress(value, thresholds = GAME_BAR_CHARGE_DEFAULTS) {
   validateCharge(value, thresholds);
-  const { greenThreshold: green, orangeThreshold: orange, purpleThreshold: purple } = thresholds;
-  if (value >= purple) return 1;
-  if (value >= orange) return (2 + (value - orange) / (purple - orange)) / 3;
-  if (value >= green) return (1 + (value - green) / (orange - green)) / 3;
-  return value / green / 3;
+  return Math.min(value / thresholds.purpleThreshold, 1);
 }
 
 export function updateGameBarCharge(page, {

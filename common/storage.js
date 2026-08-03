@@ -16,6 +16,7 @@ const KEYS = {
   language: "zuben.language",
   challenges: "zuben.challengeList",
   readedVer: "zuben.readedVer",
+  gameBarTour: "zuben.gameBarTour",
 };
 
 const memoryPreferences = new Map();

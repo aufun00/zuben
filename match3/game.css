@@ -1,5 +1,5 @@
 .match3-zone { display: grid; min-height: 0; align-content: center; padding: 18px; }
-.match3-board { display: grid; width: min(100%, 560px); aspect-ratio: var(--match3-aspect); grid-template-columns: repeat(var(--match3-columns), 1fr); gap: clamp(3px, 1vw, 7px); padding: clamp(7px, 2vw, 13px); border: 1px solid var(--line); border-radius: 22px; background: var(--match-board-bg); box-shadow: inset 0 0 28px #0005; }
+.match3-board { display: grid; width: min(100%, 560px); aspect-ratio: var(--match3-aspect); grid-template-columns: repeat(var(--match3-columns), 1fr); gap: clamp(3px, 1cqw, 7px); padding: clamp(7px, 2cqw, 13px); border: 1px solid var(--line); border-radius: 22px; background: var(--match-board-bg); box-shadow: inset 0 0 28px #0005; }
 .match3-tile { position: relative; min-width: 0; padding: 0; border: 0; border-radius: 28%; background: var(--tile-color); cursor: pointer; box-shadow: inset 0 -5px 9px #0002, 0 4px 9px #0005; transition: opacity 150ms ease, transform 120ms ease, box-shadow 120ms ease; }
 .match3-tile::after { content: ""; position: absolute; inset: 10%; border-radius: inherit; background: linear-gradient(145deg, #fff7, transparent 44%); }
 .match3-tile[data-color="-1"] { opacity: 0; }
@@ -21,5 +21,5 @@
 .match3-rules ol { display: grid; gap: 8px; margin: 16px 0 0; padding-left: 22px; color: var(--muted); text-align: left; line-height: 1.45; }
 .match3-overlay { position: absolute; z-index: 5; inset: 0; display: grid; place-items: center; padding: 18px; overflow: auto; border-radius: inherit; background: var(--game-overlay-bg); text-align: center; }
 .match3-overlay[hidden] { display: none; }
-@media (max-width: 380px) { .match3-zone { padding: 10px; } .match3-board { gap: 3px; padding: 7px; border-radius: 17px; } }
+@container (max-width: 380px) { .match3-zone { padding: 10px; } .match3-board { gap: 3px; padding: 7px; border-radius: 17px; } }
 @media (prefers-reduced-motion: reduce) { .match3-tile { transition: none; } }
