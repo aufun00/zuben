@@ -1,4 +1,4 @@
-const VERSION = "0.0.86";
+const VERSION = "0.0.90";
 const CACHE_NAME = `zuben-${VERSION}`;
 const NETWORK_TIMEOUT_MS = 3000;
 const CORE = [
@@ -7,7 +7,7 @@ const CORE = [
   "./common/game-list.js", "./common/storage.js", "./common/version-state.js", "./common/protocol-constants.js", "./common/game-time.js", "./common/icode.js", "./common/rng.js", "./common/qr.js", "./common/icons.js",
   "./common/header.js", "./common/modal.js", "./common/site-exit.js", "./common/timeout.js", "./common/event-signal.js", "./common/challenges.js", "./common/share.js", "./common/share-dialog.js", "./common/result-code.js", "./common/game-result.js",
   "./common/game-flow-config.js", "./common/game-controller.js", "./common/gesture-input.js", "./common/performance-meter.js", "./common/game-bar-charge.js", "./common/game-bar-tour.js", "./common/game-shell.js", "./common/game-shell.css",
-  "./match3/config.js", "./match3/engine.js", "./match3/runtime.js", "./match3/render.js", "./match3/game.js", "./match3/game.css", "./match3/lang.js",
+  "./match3/config.js", "./match3/engine.js", "./match3/runtime.js", "./match3/render.js", "./match3/sound.js", "./match3/game.js", "./match3/game.css", "./match3/lang.js",
   "./match3/piece-1O.svg", "./match3/piece-2O.svg", "./match3/piece-3O.svg", "./match3/piece-4O.svg", "./match3/piece-5O.svg", "./match3/piece-6O.svg",
   "./stacker/config.js", "./stacker/engine.js", "./stacker/runtime.js", "./stacker/render.js", "./stacker/game.js", "./stacker/game.css", "./stacker/lang.js", "./stacker/mesh.js",
   "./runner/config.js", "./runner/road.js", "./runner/runtime.js", "./runner/render.js", "./runner/svg.js", "./runner/game.js", "./runner/game.css", "./runner/lang.js",

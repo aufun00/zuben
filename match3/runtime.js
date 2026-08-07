@@ -126,7 +126,7 @@ export function createMatch3Runtime({ cfg, seed, limitMS, readBN = () => perform
     energy = Math.min(Number.MAX_SAFE_INTEGER, energy + plan.count * cfg.EnergyPerCell);
     const coefficient = Math.max(1, energy / cfg.ScoreEnergyDivisor);
     score = Math.min(SCORE_MAX, score + Math.floor(plan.count * chain * coefficient));
-    beginTransition(OPERATION_RESOLVE, atGT, atGT + duration, { beforeTypes, beforeEffects, afterTypes: types, afterEffects: effects, marks: plan.marks, effectCells: plan.effectCells, motions: collapsed.motions, clearEndGT: atGT + cfg.ClearMS, thisCount: plan.count, chain });
+    beginTransition(OPERATION_RESOLVE, atGT, atGT + duration, { beforeTypes, beforeEffects, afterTypes: types, afterEffects: effects, marks: plan.marks, triggered: plan.triggered, effectCells: plan.effectCells, motions: collapsed.motions, clearEndGT: atGT + cfg.ClearMS, thisCount: plan.count, chain });
   }
   function stable(atGT) { chain = 0; if (!boardHasLegalMove(types, size)) end("NO_MOVES", atGT); }
   function beginTransition(kind, startGT, endGT, data) {

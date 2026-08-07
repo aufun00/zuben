@@ -1,5 +1,6 @@
 import { TILE_CATALOG, cfg } from "./config.js";
 import { OPERATION_RESOLVE, OPERATION_SWAP, OPERATION_SWAP_BACK, PHASE_RUNNING } from "./runtime.js";
+import { createMatch3Sound } from "./sound.js";
 
 const PIECE_URLS = TILE_CATALOG.map((_, index) => new URL(`./piece-${index + 1}O.svg`, import.meta.url).href);
 const MOVE_EASING = "cubic-bezier(.33,1,.68,1)";
@@ -8,6 +9,7 @@ const RASTER_SIZES = Object.freeze([64, 128, 256, 512]);
 
 export function createMatch3Renderer({ gameZone, runtime, performanceMeter, readBN = () => performance.now() }) {
   const board = gameZone.querySelector("[data-match3-board]");
+  const sound = createMatch3Sound({ surface: gameZone.closest(".game-page") ?? gameZone, durationMS: cfg.ClearMS + cfg.FallMS });
   const tiles = Array.from({ length: cfg.BoardSize ** 2 }, (_, index) => {
     const node = document.createElement("button");
     const pieceLayers = TILE_CATALOG.map((_, type) =>
@@ -31,6 +33,7 @@ export function createMatch3Renderer({ gameZone, runtime, performanceMeter, read
     timer = null; if (destroyed || !visible) return;
     const BN = readBN(); if (runtime.shouldYieldRender(BN)) { runtime.wakePump(); schedule(0); return; }
     const snapshot = runtime.snapshot();
+    sound.sync(snapshot);
     const animated = Boolean(snapshot.phase === PHASE_RUNNING && snapshot.transition && !reducedMotion.matches);
     let types = snapshot.types, effects = snapshot.effects, clearMarks = null, effectCells = null, progress = 1, falling = false;
     if (animated) {
@@ -115,8 +118,8 @@ export function createMatch3Renderer({ gameZone, runtime, performanceMeter, read
   return Object.freeze({
     ready,
     setSelected(index) { selected = index; lastAppearance = ""; },
-    setVisible(value) { visible = Boolean(value); if (!visible && timer !== null) { clearTimeout(timer); timer = null; } else if (visible) render(); },
-    destroy() { destroyed = true; if (timer !== null) clearTimeout(timer); timer = null; clearMotion(); if (atlasUrl !== null) URL.revokeObjectURL(atlasUrl); atlasUrl = null; },
+    setVisible(value) { visible = Boolean(value); sound.setVisible(visible); if (!visible && timer !== null) { clearTimeout(timer); timer = null; } else if (visible) render(); },
+    destroy() { destroyed = true; if (timer !== null) clearTimeout(timer); timer = null; clearMotion(); sound.destroy(); if (atlasUrl !== null) URL.revokeObjectURL(atlasUrl); atlasUrl = null; },
   });
 }
 
