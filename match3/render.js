@@ -9,7 +9,9 @@ const RASTER_SIZES = Object.freeze([64, 128, 256, 512]);
 
 export function createMatch3Renderer({ gameZone, runtime, performanceMeter, readBN = () => performance.now() }) {
   const board = gameZone.querySelector("[data-match3-board]");
-  const sound = createMatch3Sound({ surface: gameZone.closest(".game-page") ?? gameZone, durationMS: cfg.ClearMS + cfg.FallMS });
+  const gamePage = gameZone.closest(".game-page");
+  const soundSurface = gamePage?.querySelector(".game-button") ?? gamePage ?? gameZone;
+  const sound = createMatch3Sound({ surface: soundSurface, durationMS: cfg.ClearMS + cfg.FallMS });
   const tiles = Array.from({ length: cfg.BoardSize ** 2 }, (_, index) => {
     const node = document.createElement("button");
     const pieceLayers = TILE_CATALOG.map((_, type) =>

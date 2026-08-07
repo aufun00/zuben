@@ -1,7 +1,7 @@
 import { EFFECT_A, EFFECT_B, EFFECT_C, EFFECT_D, EFFECT_NONE, EFFECT_PRIORITY } from "./config.js";
 
 const OPERATION_RESOLVE = "RESOLVE";
-const MASTER_GAIN = 0.16;
+const MASTER_GAIN = 0.5;
 
 export function selectResolveSound(beforeEffects, triggered) {
   for (const effect of EFFECT_PRIORITY) {
@@ -86,10 +86,8 @@ export function createMatch3Sound({ surface, durationMS }) {
 
   function stop() { for (const source of active) { try { source.stop(); } catch {} } active.clear(); }
   function removeUnlockListeners() {
-    for (const type of ["touchstart", "pointerdown", "click", "keydown"]) surface?.removeEventListener(type, unlock, true);
+    for (const type of ["click", "keydown"]) surface?.removeEventListener(type, unlock, true);
   }
-  surface?.addEventListener("touchstart", unlock, { capture:true, passive:true });
-  surface?.addEventListener("pointerdown", unlock, true);
   surface?.addEventListener("click", unlock, true);
   surface?.addEventListener("keydown", unlock, true);
   return Object.freeze({
