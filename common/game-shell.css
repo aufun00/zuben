@@ -151,7 +151,7 @@
 .performance-meter-row[data-level="warning"] { color: var(--warning); }
 .performance-meter-row[data-level="critical"] { color: var(--danger); }
 .game-result-overlay.game-result-overlay { display: grid; place-items: center; padding: 18px; overflow-x: hidden; text-align: center; }
-.result-card { display: grid; width: min(100%, 320px); min-width: 0; gap: 10px; padding: clamp(20px, 6vw, 34px); border: 1px solid var(--line); border-radius: 26px; background: var(--surface); box-shadow: 0 22px 70px #000a; }
+.result-card { display: grid; width: min(100%, 320px); min-width: 0; grid-template-columns: minmax(0, 1fr); gap: 10px; padding: clamp(20px, 6vw, 34px); border: 1px solid var(--line); border-radius: 26px; background: var(--surface); box-shadow: 0 22px 70px #000a; }
 .result-outcome-icon { color: var(--accent); font-size: 48px; line-height: 1; text-shadow: 0 0 20px color-mix(in srgb, var(--accent), transparent 40%); }
 .game-result-overlay[data-outcome="lose"] .result-outcome-icon { color: var(--danger); }
 .game-result-overlay[data-outcome="tie"] .result-outcome-icon { color: var(--even); }
@@ -160,6 +160,8 @@
 .result-score { min-width: 7ch; color: var(--result-score); font-size: clamp(38px, 12vw, 64px); font-variant-numeric: tabular-nums; line-height: 1.1; text-shadow: 0 0 14px color-mix(in srgb, var(--result-score), transparent 55%); }
 .result-action, .share-dialog-action {
   position: relative;
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
   min-height: 48px;
   padding: 10px 15px;
@@ -176,7 +178,7 @@
 .result-action.primary { margin-top: 8px; }
 .result-action:focus-visible, .share-dialog-action:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .result-action:disabled, .share-dialog-action:disabled { cursor: not-allowed; opacity: .5; filter: saturate(.65); }
-.result-secondary-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.result-secondary-actions { display: grid; width: 100%; min-width: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
 @media (max-width: 380px) {
   .game-page { padding: 4px 8px max(8px, env(safe-area-inset-bottom)); }
   .game-page.game-page-fixed-ui { padding: 1px 0 0; }
