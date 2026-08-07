@@ -160,8 +160,7 @@
 .result-score { min-width: 7ch; color: var(--result-score); font-size: clamp(38px, 12vw, 64px); font-variant-numeric: tabular-nums; line-height: 1.1; text-shadow: 0 0 14px color-mix(in srgb, var(--result-score), transparent 55%); }
 .result-action, .share-dialog-action {
   position: relative;
-  width: 100%;
-  max-width: 100%;
+  justify-self: stretch;
   min-width: 0;
   min-height: 48px;
   padding: 10px 15px;
@@ -178,7 +177,7 @@
 .result-action.primary { margin-top: 8px; }
 .result-action:focus-visible, .share-dialog-action:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .result-action:disabled, .share-dialog-action:disabled { cursor: not-allowed; opacity: .5; filter: saturate(.65); }
-.result-secondary-actions { display: grid; width: 100%; min-width: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.result-secondary-actions { display: grid; min-width: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); justify-self: stretch; gap: 9px; }
 @media (max-width: 380px) {
   .game-page { padding: 4px 8px max(8px, env(safe-area-inset-bottom)); }
   .game-page.game-page-fixed-ui { padding: 1px 0 0; }
