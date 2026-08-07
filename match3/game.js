@@ -13,7 +13,7 @@ export function renderGamePage(mount, context) { renderGameShell(mount, { ...con
 
 function setupMatch3({ page, gameZone, game, gameIdx, parsed, durationMs, ghostScore, strings, localized, performanceMeter }) {
   let activeStrings = strings, activeLocalized = localized, latest = null, resultView = null, input = null, renderer = null, runtime = null;
-  let selected = null, activeIndex = 0, destroyed = false, failed = false, assetsReady = false, failureCode = null, force = true;
+  let selected = null, activeIndex = 0, focusBoardOnRun = false, destroyed = false, failed = false, assetsReady = false, failureCode = null, force = true;
   gameZone.classList.add("match3-zone");
   gameZone.innerHTML = `
     <div class="match3-playfield" data-match3-playfield role="application">
@@ -34,7 +34,12 @@ function setupMatch3({ page, gameZone, game, gameIdx, parsed, durationMs, ghostS
       if (latest) onSnapshot(latest);
     }, (error) => { if (!destroyed && !failed) onError(error, "INIT"); });
   } catch (error) { onError(error, "INIT"); return { cleanup() {} }; }
-  page.querySelector(".game-button").addEventListener("click", () => { if (assetsReady) runtime.enqueueGameBarClick(performance.now()); });
+  const gameButton = page.querySelector(".game-button");
+  gameButton.addEventListener("pointerdown", () => { focusBoardOnRun = false; });
+  gameButton.addEventListener("keydown", (event) => {
+    if (!event.repeat && (event.key === "Enter" || event.key === " ")) focusBoardOnRun = true;
+  });
+  gameButton.addEventListener("click", () => { if (assetsReady) runtime.enqueueGameBarClick(performance.now()); });
   input = bindGameInput(board, {
     recognizer: "tap-swipe", thresholdPx: cfg.SwipeThresholdPx,
     resolveContext(event) { const tile = event.target.closest?.("[data-index]"); return tile && board.contains(tile) ? Object.freeze({ index: Number(tile.dataset.index) }) : null; },
@@ -76,7 +81,10 @@ function setupMatch3({ page, gameZone, game, gameIdx, parsed, durationMs, ghostS
     updateGameControlButton(button, snapshot.phase, activeStrings);
     if (!assetsReady) button.disabled = true;
     updateGameSurfaceState({ cover, overlay }, snapshot.phase); board.setAttribute("aria-disabled", String(!canAct())); updateTabs();
-    if (phaseChanged && snapshot.phase === PHASE_RUNNING) board.querySelector(`[data-index="${activeIndex}"]`)?.focus({ preventScroll: true });
+    if (phaseChanged && snapshot.phase === PHASE_RUNNING) {
+      if (focusBoardOnRun) board.querySelector(`[data-index="${activeIndex}"]`)?.focus({ preventScroll: true });
+      focusBoardOnRun = false;
+    }
     ({ input, resultView } = updateGameResultView({ phase: snapshot.phase, resultView, input, overlay, gameIdx, game, parsed, result: snapshot.result, ghostScore, language: document.documentElement.lang.startsWith("zh") ? "zh" : "en", strings: activeStrings, localized: activeLocalized }));
     force = false;
   }

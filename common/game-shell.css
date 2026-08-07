@@ -151,13 +151,13 @@
 .performance-meter-row[data-level="warning"] { color: var(--warning); }
 .performance-meter-row[data-level="critical"] { color: var(--danger); }
 .game-result-overlay.game-result-overlay { display: grid; place-items: center; padding: 18px; overflow-x: hidden; text-align: center; }
-.result-card { display: grid; width: min(100%, 320px); min-width: 0; grid-template-columns: minmax(0, 1fr); gap: 10px; padding: clamp(20px, 6vw, 34px); border: 1px solid var(--line); border-radius: 26px; background: var(--surface); box-shadow: 0 22px 70px #000a; }
+.result-card { display: grid; width: min(100%, 320px); min-width: 0; grid-template-columns: minmax(0, 1fr); gap: 10px; padding: clamp(20px, 6cqw, 34px); border: 1px solid var(--line); border-radius: 26px; background: var(--surface); box-shadow: 0 22px 70px #000a; }
 .result-outcome-icon { color: var(--accent); font-size: 48px; line-height: 1; text-shadow: 0 0 20px color-mix(in srgb, var(--accent), transparent 40%); }
 .game-result-overlay[data-outcome="lose"] .result-outcome-icon { color: var(--danger); }
 .game-result-overlay[data-outcome="tie"] .result-outcome-icon { color: var(--even); }
-.result-card h1 { margin: 0; font-size: clamp(25px, 7vw, 38px); }
+.result-card h1 { margin: 0; font-size: clamp(25px, 7cqw, 38px); }
 .result-reason { margin: -3px 0 4px; color: var(--muted); }
-.result-score { min-width: 7ch; color: var(--result-score); font-size: clamp(38px, 12vw, 64px); font-variant-numeric: tabular-nums; line-height: 1.1; text-shadow: 0 0 14px color-mix(in srgb, var(--result-score), transparent 55%); }
+.result-score { min-width: 0; justify-self: center; color: var(--result-score); font-size: clamp(38px, 12cqw, 64px); font-variant-numeric: tabular-nums; line-height: 1.1; white-space: nowrap; text-shadow: 0 0 14px color-mix(in srgb, var(--result-score), transparent 55%); }
 .result-action, .share-dialog-action {
   position: relative;
   justify-self: stretch;
