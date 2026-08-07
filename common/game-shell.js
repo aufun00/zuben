@@ -1,4 +1,5 @@
 import { renderHeader } from "./header.js";
+import { emitEventSignal } from "./event-signal.js";
 import { iconMarkup } from "./icons.js";
 import { parseICode } from "./icode.js";
 import { readResultScore } from "./result-code.js";
@@ -47,7 +48,8 @@ export function renderGameShell(mount, { game, gameIdx, params, version, gameStr
   }
 
   const duration = game.durs[parsed.durIdx];
-  const ghostScore = readResultScore(params, game.gameID, parsed.code);
+  const emitBeacon = (event) => emitEventSignal({ gameID: game.gameID, timeS: duration, event });
+  const ghostScore = readResultScore(params, game.gameID, parsed.code, game.scoreVersion);
   const page = document.createElement("main");
   page.className = "game-page game-page-fixed-ui";
   page.innerHTML = `
@@ -55,7 +57,7 @@ export function renderGameShell(mount, { game, gameIdx, params, version, gameStr
       <div class="status-metric time-metric" title="${strings.time}">
         <span class="visually-hidden">${strings.time}</span><strong data-time>${formatRemaining(duration * 1000)}</strong>
       </div>
-      <button class="game-button" type="button" data-control-state="play" aria-label="${strings.start}" title="${strings.start}">${strings.start}</button>
+      <button class="game-button" type="button" data-control-state="play" aria-label="${strings.start}" title="${strings.start}"><span class="crystal-button-label">${strings.start}</span></button>
       <div class="status-metric score-metric" title="${strings.score}">
         <span class="visually-hidden">${strings.score}</span><strong data-score>0</strong>
       </div>
@@ -76,10 +78,24 @@ export function renderGameShell(mount, { game, gameIdx, params, version, gameStr
     </section>
   `;
   mount.append(page);
+  page.querySelector(".game-button").addEventListener("click", () => {
+    if (page.querySelector("[data-game-zone]")?.dataset.phase === PHASE_ENDED) location.reload();
+  });
   updateTugBar(page, 0, ghostScore, strings, 0, duration * 1000);
   tourBinding = createGameBarTour(page, strings);
   if (setupGame) {
     const performanceMeter = createPerformanceMeter(headerBinding.performanceMeterHost, performanceMeterCfg);
+    let startBeaconSent = false;
+    const trackedPerformanceMeter = Object.freeze({
+      ...performanceMeter,
+      setPhase(nextPhase) {
+        performanceMeter.setPhase(nextPhase);
+        if (!startBeaconSent && nextPhase === PHASE_RUNNING) {
+          startBeaconSent = true;
+          emitBeacon("startGame");
+        }
+      },
+    });
     const binding = setupGame({
       page,
       gameZone: page.querySelector("[data-game-zone]"),
@@ -90,8 +106,9 @@ export function renderGameShell(mount, { game, gameIdx, params, version, gameStr
       ghostScore,
       strings,
       localized,
-      performanceMeter,
+      performanceMeter: trackedPerformanceMeter,
     });
+    emitBeacon("openLink");
     if (typeof binding === "function") cleanup = () => { binding(); performanceMeter.destroy(); };
     else if (binding) {
       cleanup = () => { binding.cleanup?.(); performanceMeter.destroy(); };
@@ -100,6 +117,8 @@ export function renderGameShell(mount, { game, gameIdx, params, version, gameStr
         const nextLocalized = gameStrings[nextLanguage] ?? gameStrings.en;
         updateGameChromeLanguage(page, nextStrings);
         tourBinding?.setLanguage(nextStrings);
+        const gameZone = page.querySelector("[data-game-zone]");
+        if (gameZone?.dataset.phase === "PHASE_ERROR") renderControllerFailure(page, nextStrings, gameZone.dataset.errorCode);
         binding.setLanguage?.({ language: nextLanguage, strings: nextStrings, localized: nextLocalized });
       };
     } else {
@@ -183,8 +202,109 @@ function connectClock(page, durationSeconds, strings) {
   });
 }
 
-export function setControlButton(button, state, label) {
-  button.textContent = label;
+export function ensureGameStylesheet(moduleUrl) {
+  const href = new URL("./game.css", moduleUrl).href;
+  if (document.querySelector(`link[href="${href}"]`)) return;
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = href;
+  document.head.append(link);
+}
+
+export function updateGameSurfaceState({ cover, playfield, overlay }, phase) {
+  const running = phase === "PHASE_RUNNING";
+  const ended = phase === "PHASE_ENDED";
+  cover.hidden = running || ended;
+  overlay.hidden = !ended;
+  if (playfield) {
+    playfield.tabIndex = running ? 0 : -1;
+    playfield.setAttribute("aria-disabled", String(!running));
+  }
+}
+
+export function updateGamePhasePresentation({ gameZone, playfield, performanceMeter }, { phase, previousPhase, settling }) {
+  playfield.classList.toggle("deadline-settlement", Boolean(settling));
+  const phaseChanged = phase !== previousPhase;
+  if (phaseChanged) {
+    performanceMeter.setPhase(phase);
+    gameZone.dataset.phase = phase;
+  }
+  return phaseChanged;
+}
+
+export function handleGameVisibilityChange({ hidden, input, runtime, renderer, onHide, getBN = () => performance.now() }) {
+  if (hidden) {
+    input?.cancelSession();
+    onHide?.();
+    runtime?.enqueuePause(getBN());
+  }
+  renderer?.setVisible(!hidden);
+}
+
+export function createGameErrorCode(gameID, stage) {
+  if (!/^[a-z0-9]+$/i.test(gameID)) throw new TypeError("gameID must be alphanumeric");
+  if (stage !== "INIT" && stage !== "RUNTIME") throw new RangeError("stage must be INIT or RUNTIME");
+  return `ZB-${gameID.toUpperCase()}-${stage}`;
+}
+
+export function disposeGamePageResources({ visibilityHandler, input, renderer, runtime, eventTarget = document, errorCode = "ZB-CLEANUP" }) {
+  if (visibilityHandler) eventTarget.removeEventListener("visibilitychange", visibilityHandler);
+  for (const [name, resource] of [["input", input], ["renderer", renderer], ["runtime", runtime]]) {
+    try {
+      resource?.destroy();
+    } catch (error) {
+      console.error(`[${errorCode}] Could not destroy ${name}`, error);
+    }
+  }
+  return { input: null, renderer: null, runtime: null };
+}
+
+export function failGamePage({ gameID, stage, error, page, strings, visibilityHandler, input, renderer, runtime }) {
+  const errorCode = createGameErrorCode(gameID, stage);
+  console.error(`[${errorCode}] GamePage failed`, error);
+  const resources = disposeGamePageResources({ visibilityHandler, input, renderer, runtime, errorCode });
+  renderControllerFailure(page, strings, errorCode);
+  return { ...resources, errorCode };
+}
+
+export function updateGameControlButton(button, phase, strings) {
+  let disabled;
+  let state;
+  let label;
+  if (phase === "PHASE_READY") {
+    disabled = false;
+    state = "play";
+    label = strings.start;
+  } else if (phase === "PHASE_PREPARING") {
+    disabled = true;
+    state = "clock";
+    label = strings.ready;
+  } else if (phase === "PHASE_RUNNING") {
+    disabled = false;
+    state = "pause";
+    label = strings.pause;
+  } else if (phase === "PHASE_PAUSED") {
+    disabled = false;
+    state = "play";
+    label = strings.resume;
+  } else if (phase === "PHASE_ENDED") {
+    disabled = false;
+    state = "play";
+    label = strings.tryAgain;
+  } else if (phase === "PHASE_ERROR") {
+    disabled = true;
+    state = "finish";
+    label = strings.failed;
+  } else {
+    return false;
+  }
+  button.disabled = disabled;
+  setControlButton(button, state, label);
+  return true;
+}
+
+function setControlButton(button, state, label) {
+  button.querySelector(".crystal-button-label").textContent = label;
   button.dataset.controlState = state;
   button.setAttribute("aria-label", label);
   button.title = label;
@@ -255,17 +375,19 @@ export function renderControllerStatus(page, snapshot, ghostScore, strings) {
     button.disabled = true;
     setControlButton(button, "clock", strings.settling);
   } else if (snapshot.phase === PHASE_ENDED) {
-    button.disabled = true;
-    setControlButton(button, "finish", strings.finished);
+    button.disabled = false;
+    setControlButton(button, "play", strings.tryAgain);
   }
 }
 
-export function renderControllerFailure(page, strings) {
+export function renderControllerFailure(page, strings, errorCode) {
   const button = page.querySelector(".game-button");
   button.disabled = true;
   setControlButton(button, "finish", strings.failed);
   const gameZone = page.querySelector("[data-game-zone]");
   gameZone.dataset.phase = "PHASE_ERROR";
+  if (errorCode) gameZone.dataset.errorCode = errorCode;
+  else errorCode = gameZone.dataset.errorCode;
   gameZone.setAttribute("aria-disabled", "true");
   const panel = document.createElement("section");
   panel.className = "game-error game-runtime-error";
@@ -275,6 +397,13 @@ export function renderControllerFailure(page, strings) {
   const hint = document.createElement("p");
   hint.textContent = strings.gameErrorHint;
   panel.append(title, hint);
+  if (errorCode) {
+    panel.dataset.errorCode = errorCode;
+    const code = document.createElement("p");
+    code.className = "game-error-code";
+    code.textContent = `${strings.errorCode}: ${errorCode}`;
+    panel.append(code);
+  }
   gameZone.replaceChildren(panel);
 }
 

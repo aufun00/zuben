@@ -1,4 +1,5 @@
 import { SCORE_MAX } from "../common/protocol-constants.js";
+import { createGameTime, DEADLINE_SETTLEMENT_MS } from "../common/game-time.js";
 import { createLogicRng } from "../common/rng.js";
 import { canMove, getMaxTile, moveBoard, validate2048Config } from "./engine.js";
 
@@ -18,58 +19,9 @@ const TYPE_PAUSE_GAME = "PauseGame";
 const TYPE_START_GAME = "StartGame";
 const TYPE_PLAYER_ACTION = "PAction";
 const TYPE_FINISH_MOVE = "FinishMove";
+const TYPE_FINISH_SETTLEMENT = "FinishSettlement";
 const UINT32_RANGE = 0x1_0000_0000;
 const DIRECTIONS = new Set(["north", "east", "south", "west"]);
-
-export function createGameTime() {
-  let startAt = null;
-  let pauseAt = null;
-  let limitGT = null;
-
-  return Object.freeze({
-    reset(baseNow) {
-      startAt = baseNow;
-      pauseAt = null;
-    },
-    pause(baseNow) {
-      if (startAt === null || pauseAt !== null) return;
-      pauseAt = baseNow;
-    },
-    pauseAndJumpTo(baseNow, targetGT) {
-      if (startAt === null || pauseAt !== null) return;
-      const currentGT = baseNow - startAt;
-      const jumpGT = Number.isFinite(targetGT) ? Math.max(0, targetGT - currentGT) : 0;
-      pauseAt = baseNow;
-      startAt -= jumpGT;
-    },
-    resume(baseNow) {
-      if (startAt === null || pauseAt === null) return;
-      startAt += baseNow - pauseAt;
-      pauseAt = null;
-    },
-    getGT(baseNow) {
-      if (startAt === null) return null;
-      return (pauseAt ?? baseNow) - startAt;
-    },
-    getBN(gameTime) {
-      if (startAt === null || pauseAt !== null || !Number.isFinite(gameTime)) return null;
-      return startAt + gameTime;
-    },
-    setLimit(limitMS) {
-      if (!Number.isFinite(limitMS) || limitMS < 0) {
-        limitGT = null;
-        return false;
-      }
-      limitGT = limitMS;
-      return true;
-    },
-    isTimeUp(baseNow) {
-      if (limitGT === null) return false;
-      const currentGT = this.getGT(baseNow);
-      return currentGT !== null && currentGT >= limitGT;
-    },
-  });
-}
 
 export function create2048Runtime({
   cfg,
@@ -84,8 +36,7 @@ export function create2048Runtime({
 }) {
   validate2048Config(cfg);
   if (!(seed instanceof Uint8Array) || seed.length !== 6) throw new TypeError("seed must be a 6-byte Uint8Array");
-  const gameTime = createGameTime();
-  if (!gameTime.setLimit(limitMS)) throw new RangeError("limitMS must be nonnegative");
+  const gameTime = createGameTime(limitMS);
 
   const rng = createLogicRng(seed);
   let phase = PHASE_INIT;
@@ -99,6 +50,7 @@ export function create2048Runtime({
   let transition = null;
   let endReason = null;
   let endedGT = null;
+  let settling = false;
   let nextSequence = 0;
   let destroyed = false;
   let pumping = false;
@@ -150,28 +102,33 @@ export function create2048Runtime({
     pumping = true;
     try {
       const tickBN = readBN();
-      if (phase === PHASE_RUNNING && gameTime.isTimeUp(tickBN)) runDeadline(tickBN);
+      const deadlineBN = gameTime.getDeadlineBN();
+      if (phase === PHASE_RUNNING && settling) drainQueue(tickBN, tickBN);
+      else if (phase === PHASE_RUNNING && deadlineBN !== null && tickBN >= deadlineBN) runDeadline(tickBN);
       else drainQueue(tickBN, tickBN);
       publishSnapshot(tickBN);
       if (phase === PHASE_RUNNING) onPump?.(readBN());
     } finally {
       pumping = false;
     }
-    if (phase === PHASE_PREPARING || phase === PHASE_RUNNING) schedulePump();
+    if (iQ.length > 0 || phase === PHASE_PREPARING || phase === PHASE_RUNNING) schedulePump();
   }
 
   function runDeadline(tickBN) {
-    const deadlineBN = gameTime.getBN(limitMS);
+    const deadlineBN = gameTime.getDeadlineBN();
     if (deadlineBN === null) throw new Error("2048 deadline is unavailable");
     drainQueue(deadlineBN, tickBN);
     if (phase === PHASE_RUNNING) {
       settleEnergy(limitMS);
-      end("TIME_UP", limitMS);
+      operation = OPERATION_IDLE;
+      transition = null;
+      removeQueued(TYPE_FINISH_MOVE);
+      beginSettlement(tickBN);
     }
   }
 
   function drainQueue(upToBN, tickBN) {
-    while (iQ.length && iQ[0].BN <= upToBN) {
+    while (iQ.length && iQ[0].BN < upToBN) {
       const item = iQ.shift();
       handleItem(item, tickBN);
       if (phase === PHASE_ENDED || phase === PHASE_ERROR) return;
@@ -181,6 +138,7 @@ export function create2048Runtime({
   function handleItem(item, tickBN) {
     if (item.type === TYPE_GAME_BAR_CLICK) {
       if (phase === PHASE_READY || phase === PHASE_PAUSED) beginPreparing(tickBN);
+      else if (phase === PHASE_RUNNING && settling) end("TIME_UP", limitMS);
       else if (phase === PHASE_RUNNING) pauseAt(item.BN);
       return;
     }
@@ -188,6 +146,8 @@ export function create2048Runtime({
       if (phase === PHASE_PREPARING) {
         removeQueued(TYPE_START_GAME);
         phase = PHASE_PAUSED;
+      } else if (phase === PHASE_RUNNING && settling) {
+        end("TIME_UP", limitMS);
       } else if (phase === PHASE_RUNNING) {
         pauseAt(item.BN);
       }
@@ -195,9 +155,15 @@ export function create2048Runtime({
     }
     if (item.type === TYPE_START_GAME) {
       if (phase !== PHASE_PREPARING) return;
-      if (gameTime.getGT(tickBN) === null) gameTime.reset(tickBN);
-      else gameTime.resume(tickBN);
       phase = PHASE_RUNNING;
+      publishSnapshot(tickBN);
+      const startBN = readBN();
+      if (gameTime.getGT(startBN) === null) gameTime.reset(startBN);
+      else gameTime.resume(startBN);
+      return;
+    }
+    if (item.type === TYPE_FINISH_SETTLEMENT) {
+      if (phase === PHASE_RUNNING && settling) end("TIME_UP", limitMS);
       return;
     }
     if (item.type === TYPE_FINISH_MOVE) {
@@ -210,7 +176,7 @@ export function create2048Runtime({
   }
 
   function handleAction(item) {
-    if (phase !== PHASE_RUNNING || operation !== OPERATION_IDLE) return;
+    if (phase !== PHASE_RUNNING || settling || operation !== OPERATION_IDLE) return;
     const actionGT = gameTime.getGT(item.BN);
     if (actionGT === null || actionGT < 0 || actionGT > limitMS) return;
     settleEnergy(actionGT);
@@ -253,8 +219,9 @@ export function create2048Runtime({
     const pauseGT = gameTime.getGT(BN);
     if (pauseGT === null || pauseGT < 0) return;
     if (operation === OPERATION_MOVING && transition !== null) {
-      settleEnergy(transition.endGT);
-      gameTime.pauseAndJumpTo(BN, transition.endGT);
+      const settledGT = Math.min(transition.endGT, limitMS);
+      settleEnergy(settledGT);
+      gameTime.pauseAndJumpTo(BN, settledGT);
       removeQueued(TYPE_FINISH_MOVE);
       operation = OPERATION_IDLE;
       transition = null;
@@ -267,6 +234,7 @@ export function create2048Runtime({
 
   function end(reason, atGT) {
     phase = PHASE_ENDED;
+    settling = false;
     operation = OPERATION_IDLE;
     transition = null;
     endReason = reason;
@@ -281,7 +249,7 @@ export function create2048Runtime({
     const prepareAt = iQ.find((item) => item.type === TYPE_START_GAME)?.BN ?? null;
     const prepareRemainingMS = phase === PHASE_PREPARING && prepareAt !== null ? Math.max(0, prepareAt - sampleBN) : 0;
     const sampledGT = gameTime.getGT(sampleBN);
-    const runGT = phase === PHASE_ENDED ? endedGT : Math.max(0, sampledGT ?? 0);
+    const runGT = phase === PHASE_ENDED || settling ? endedGT : Math.max(0, sampledGT ?? 0);
     if (phase === PHASE_RUNNING) settleEnergy(Math.min(runGT, limitMS));
     latestSnapshot = Object.freeze({
       phase,
@@ -298,9 +266,18 @@ export function create2048Runtime({
       transition,
       endReason,
       endedGT,
+      settling,
       result: phase === PHASE_ENDED ? Object.freeze({ score, reason: endReason }) : null,
     });
     onSnapshot?.(latestSnapshot);
+  }
+
+  function beginSettlement(tickBN) {
+    settling = true;
+    endReason = "TIME_UP";
+    endedGT = limitMS;
+    iQ.length = 0;
+    insertInternal(TYPE_FINISH_SETTLEMENT, tickBN + DEADLINE_SETTLEMENT_MS);
   }
 
   function schedulePump() {
@@ -329,6 +306,7 @@ export function create2048Runtime({
       operationFn();
     } catch (error) {
       phase = PHASE_ERROR;
+      settling = false;
       operation = OPERATION_IDLE;
       transition = null;
       if (pumpTimer !== null) clearTimer(pumpTimer);
@@ -349,7 +327,7 @@ export function create2048Runtime({
       return enqueue(TYPE_PLAYER_ACTION, BN, { direction });
     },
     shouldYieldRender(BN = readBN()) {
-      return !destroyed && ((pumpDueBN !== null && BN >= pumpDueBN) || (iQ[0]?.BN ?? Infinity) <= BN);
+      return !destroyed && ((pumpDueBN !== null && BN >= pumpDueBN) || (iQ[0]?.BN ?? Infinity) < BN);
     },
     wakePump,
     destroy() {

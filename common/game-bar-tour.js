@@ -1,6 +1,6 @@
 import { getPreference, setPreference } from "./storage.js";
 
-export const GAME_BAR_TOUR_VERSION = "1";
+export const GAME_BAR_TOUR_VERSION = "3";
 
 const TOUR_STEP_SELECTORS = Object.freeze([
   ".time-metric",
@@ -22,8 +22,6 @@ export function createGameBarTour(page, strings) {
   if (!gameBar || !gameButton || targets.some((target) => !target)) return inactiveBinding();
 
   let activeStrings = strings;
-  let stepIndex = 0;
-  let activeTarget = null;
   let destroyed = false;
 
   const tour = document.createElement("section");
@@ -32,88 +30,56 @@ export function createGameBarTour(page, strings) {
   tour.setAttribute("role", "dialog");
   tour.setAttribute("aria-labelledby", "game-bar-tour-title");
   tour.innerHTML = `
-    <div class="game-bar-tour-heading">
-      <strong id="game-bar-tour-title" data-game-bar-tour-title></strong>
-      <span data-game-bar-tour-count></span>
-    </div>
-    <p data-game-bar-tour-copy></p>
+    <h2 class="game-bar-tour-heading" id="game-bar-tour-title" data-game-bar-tour-title></h2>
+    <div class="game-bar-tour-callouts"></div>
     <div class="game-bar-tour-actions">
-      <button type="button" data-game-bar-tour-back></button>
-      <button type="button" class="game-bar-tour-next" data-game-bar-tour-next></button>
+      <button type="button" class="game-bar-tour-done" data-game-bar-tour-done></button>
     </div>
   `;
   page.append(tour);
   gameBar.dataset.tourActive = "true";
+  targets.forEach((target, index) => {
+    target.classList.add("game-bar-tour-target");
+    target.dataset.gameBarTourNumber = String(index + 1);
+  });
 
-  const back = tour.querySelector("[data-game-bar-tour-back]");
-  const next = tour.querySelector("[data-game-bar-tour-next]");
+  const done = tour.querySelector("[data-game-bar-tour-done]");
   const blockGameBar = (event) => {
     event.preventDefault();
     event.stopImmediatePropagation();
   };
   gameBar.addEventListener("click", blockGameBar, true);
   gameBar.addEventListener("keydown", blockGameBar, true);
-  back.addEventListener("click", () => {
-    if (stepIndex > 0) {
-      stepIndex -= 1;
-      render();
-    }
-  });
-  next.addEventListener("click", () => {
-    if (stepIndex < targets.length - 1) {
-      stepIndex += 1;
-      render();
-      return;
-    }
+  done.addEventListener("click", () => {
     setPreference("gameBarTour", GAME_BAR_TOUR_VERSION);
     destroy();
     requestAnimationFrame(() => gameButton.focus({ preventScroll: true }));
   });
-  addEventListener("resize", position);
   render();
-  requestAnimationFrame(() => next.focus({ preventScroll: true }));
+  requestAnimationFrame(() => done.focus({ preventScroll: true }));
 
   function render() {
     if (destroyed) return;
-    activeTarget?.classList.remove("game-bar-tour-target");
-    activeTarget = targets[stepIndex];
-    activeTarget.classList.add("game-bar-tour-target");
     tour.querySelector("[data-game-bar-tour-title]").textContent = activeStrings.gameBarTourTitle;
-    tour.querySelector("[data-game-bar-tour-count]").textContent = `${stepIndex + 1}/${targets.length}`;
-    tour.querySelector("[data-game-bar-tour-copy]").textContent = activeStrings.gameBarTourSteps[stepIndex];
-    back.textContent = activeStrings.gameBarTourBack;
-    back.hidden = stepIndex === 0;
-    next.textContent = stepIndex === targets.length - 1
-      ? activeStrings.gameBarTourDone
-      : activeStrings.gameBarTourNext;
-    position();
-  }
-
-  function position() {
-    if (destroyed || !tour.isConnected || !activeTarget) return;
-    const pageRect = page.getBoundingClientRect();
-    const barRect = gameBar.getBoundingClientRect();
-    const targetRect = activeTarget.getBoundingClientRect();
-    const tourRect = tour.getBoundingClientRect();
-    const margin = 8;
-    const targetCenter = targetRect.left + targetRect.width / 2 - pageRect.left;
-    const left = Math.min(
-      pageRect.width - tourRect.width - margin,
-      Math.max(margin, targetCenter - tourRect.width / 2),
-    );
-    tour.style.left = `${left}px`;
-    tour.style.top = `${barRect.bottom - pageRect.top + 8}px`;
-    tour.style.setProperty("--game-bar-tour-arrow-x", `${targetCenter - left}px`);
+    tour.querySelector(".game-bar-tour-callouts").innerHTML = activeStrings.gameBarTourSteps.map((copy, index) => `
+      <article class="game-bar-tour-callout" data-game-bar-tour-callout="${index}">
+        <h3><span class="game-bar-tour-number">${index + 1}</span>${escapeHTML(activeStrings.gameBarTourLabels[index])}</h3>
+        <p>${escapeHTML(copy)}</p>
+      </article>
+    `).join("");
+    done.textContent = activeStrings.gameBarTourDone;
   }
 
   function destroy() {
     if (destroyed) return;
     destroyed = true;
-    activeTarget?.classList.remove("game-bar-tour-target");
+    targets.forEach((target) => {
+      target.classList.remove("game-bar-tour-target");
+      delete target.dataset.gameBarTourNumber;
+    });
     delete gameBar.dataset.tourActive;
     gameBar.removeEventListener("click", blockGameBar, true);
     gameBar.removeEventListener("keydown", blockGameBar, true);
-    removeEventListener("resize", position);
     tour.remove();
   }
 
@@ -125,6 +91,12 @@ export function createGameBarTour(page, strings) {
     },
     destroy,
   };
+}
+
+function escapeHTML(value) {
+  return String(value).replace(/[&<>'"]/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;",
+  })[character]);
 }
 
 function inactiveBinding() {

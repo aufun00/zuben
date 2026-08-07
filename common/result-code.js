@@ -14,7 +14,11 @@ export function parseResultCode(code, gameID, iCode) {
   return score <= SCORE_MAX ? { ok: true, score } : { ok: false, score: 0 };
 }
 
-export function readResultScore(params, gameID, iCode) {
+export function readResultScore(params, gameID, iCode, scoreVersion) {
+  if (scoreVersion !== undefined) {
+    const versions = params.getAll("sv");
+    if (versions.length !== 1 || versions[0] !== scoreVersion) return 0;
+  }
   const values = params.getAll("r");
   if (values.length !== 1) return 0;
   const parsed = parseResultCode(values[0], gameID, iCode);

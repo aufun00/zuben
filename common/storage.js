@@ -70,10 +70,20 @@ export function loadChallenges() {
       markStorageUnavailable(error);
       return cloneChallenges(memoryChallenges);
     }
+    let parsedSuccessfully = true;
     try {
       memoryChallenges = normalizeChallenges(JSON.parse(serialized ?? "[]"));
     } catch {
       memoryChallenges = [];
+      parsedSuccessfully = false;
+    }
+    const migrated = JSON.stringify(toPersistedChallenges(memoryChallenges));
+    if (parsedSuccessfully && serialized !== null && serialized !== migrated) {
+      try {
+        localStorage.setItem(KEYS.challenges, migrated);
+      } catch (error) {
+        markStorageUnavailable(error);
+      }
     }
   }
   return cloneChallenges(memoryChallenges);
@@ -97,8 +107,7 @@ export function normalizeChallenges(value) {
 
   const normalized = value
     .map(normalizeChallengeEntry)
-    .filter((entry) => entry !== null)
-    .sort((a, b) => b.createdAt - a.createdAt);
+    .filter((entry) => entry !== null);
   const keys = new Set();
   const unique = [];
   for (const entry of normalized) {
@@ -128,7 +137,8 @@ function normalizeChallengeEntry(value) {
     durationMark: Math.max(1, Math.round(duration / 10)),
     createdAt: value.createdAt,
     memo: truncateMemo(value.memo.trim()),
-    bestScore: normalizeBestScore(value.bestScore),
+    bestScore: game.scoreVersion === undefined || value.scoreVersion === game.scoreVersion ? normalizeBestScore(value.bestScore) : 0,
+    ...(game.scoreVersion === undefined ? {} : { scoreVersion: game.scoreVersion }),
   };
 }
 
@@ -149,7 +159,7 @@ function cloneChallenges(entries) {
 }
 
 function toPersistedChallenges(entries) {
-  return entries.map(({ gameID, iCode, createdAt, memo, bestScore }) => ({ gameID, iCode, createdAt, memo, bestScore }));
+  return entries.map(({ gameID, iCode, createdAt, memo, bestScore, scoreVersion }) => ({ gameID, iCode, createdAt, memo, bestScore, ...(scoreVersion === undefined ? {} : { scoreVersion }) }));
 }
 
 function markStorageUnavailable(error) {

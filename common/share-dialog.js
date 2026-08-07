@@ -5,7 +5,7 @@ import { formatTime } from "./challenges.js";
 import { MAX_CHALLENGE_MEMO_LENGTH } from "./storage.js";
 
 export function openChallengeShareDialog({
-  challenge, gameIdx, gameDisplayName, nickname, language, strings, returnFocus, onMemoChange, modalHost,
+  challenge, gameIdx, gameDisplayName, nickname, language, strings, returnFocus, onMemoChange, onShareOutcome, playHref,
 }) {
   const { text, url } = buildChallengeSharePayload({
     nickname,
@@ -29,8 +29,8 @@ export function openChallengeShareDialog({
       </div>
       ${challenge.memo === undefined ? "" : `<input class="share-dialog-memo" type="text" maxlength="${MAX_CHALLENGE_MEMO_LENGTH}" aria-label="${escapeHTML(strings.memo)}" value="${escapeHTML(challenge.memo)}">`}
       <div class="share-dialog-actions">
-        <a class="share-dialog-action share-dialog-open" href="${escapeHTML(url)}" target="_blank" rel="noopener">${escapeHTML(strings.startInNewTab)}</a>
-        <button class="share-dialog-action" type="button" data-native-share>${escapeHTML(strings.shareMyScore)}</button>
+        <a class="share-dialog-action share-dialog-open" href="${escapeHTML(playHref ?? url)}"><span class="crystal-button-label">${escapeHTML(strings.play)}</span></a>
+        <button class="share-dialog-action" type="button" data-native-share><span class="crystal-button-label">${escapeHTML(strings.shareMyScore)}</span></button>
       </div>
     </section>
   `;
@@ -50,13 +50,15 @@ export function openChallengeShareDialog({
     committedMemo = typeof persisted === "string" ? persisted : value;
     memo.value = committedMemo;
   };
-  const modal = openModal(backdrop, { initialFocus: closeButton, returnFocus, onBeforeClose: commitMemo, host: modalHost });
+  const modal = openModal(backdrop, { initialFocus: closeButton, returnFocus, onBeforeClose: commitMemo });
   closeButton.addEventListener("click", () => modal.close(), { signal: modal.signal });
+  backdrop.querySelector(".share-dialog-open").addEventListener("click", commitMemo, { signal: modal.signal });
   backdrop.querySelector("[data-native-share]").addEventListener("click", async (event) => {
     const button = event.currentTarget;
     button.disabled = true;
     try {
-      await shareContent({ text, url, strings });
+      const outcome = await shareContent({ text, url, strings });
+      onShareOutcome?.(outcome);
     } finally {
       button.disabled = false;
     }

@@ -1,8 +1,10 @@
 import { generateICode } from "./icode.js";
 import { loadChallenges, saveChallenges } from "./storage.js";
 import { SCORE_MAX } from "./protocol-constants.js";
+import { GAME_LIST } from "./game-list.js";
 
 export function createChallengeEntry({ gameID, durIdx, duration, language, now = Date.now(), iCode = generateICode(durIdx) }) {
+  const scoreVersion = GAME_LIST.find((game) => game.gameID === gameID)?.scoreVersion;
   return Object.freeze({
     gameID,
     iCode,
@@ -10,6 +12,7 @@ export function createChallengeEntry({ gameID, durIdx, duration, language, now =
     createdAt: now,
     memo: formatTime(now, language, "long"),
     bestScore: 0,
+    ...(scoreVersion === undefined ? {} : { scoreVersion }),
   });
 }
 
@@ -25,11 +28,34 @@ export function saveChallengeOnce(entry) {
 export function updateChallengeBestScore({ gameID, iCode, score }) {
   if (!Number.isSafeInteger(score) || score < 0 || score > SCORE_MAX) return false;
   const entries = loadChallenges();
-  const entry = entries.find((item) => item.gameID === gameID && item.iCode === iCode);
-  if (!entry || score <= entry.bestScore) return false;
-  entry.bestScore = score;
+  const index = entries.findIndex((item) => item.gameID === gameID && item.iCode === iCode);
+  if (index < 0) return false;
+  const entry = entries[index];
+  const improved = score > entry.bestScore;
+  if (!improved && index === 0) return false;
+  if (improved) entry.bestScore = score;
+  if (index > 0) {
+    entries.splice(index, 1);
+    entries.unshift(entry);
+  }
   saveChallenges(entries);
-  return true;
+  return improved;
+}
+
+export function recordChallengeBestScore({ gameID, iCode, durIdx, duration, language, score }) {
+  if (!Number.isSafeInteger(score) || score < 0 || score > SCORE_MAX) throw new RangeError("score must be a valid result score");
+  const entries = loadChallenges();
+  const index = entries.findIndex((item) => item.gameID === gameID && item.iCode === iCode);
+  let entry;
+  if (index < 0) {
+    entry = { ...createChallengeEntry({ gameID, iCode, durIdx, duration, language }), bestScore: score };
+  } else {
+    entry = entries.splice(index, 1)[0];
+    entry.bestScore = Math.max(entry.bestScore, score);
+  }
+  entries.unshift(entry);
+  const saved = saveChallenges(entries);
+  return saved.find((item) => item.gameID === gameID && item.iCode === iCode)?.bestScore ?? entry.bestScore;
 }
 
 export function formatTime(value, language, style) {

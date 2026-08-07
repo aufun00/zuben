@@ -1,9 +1,9 @@
 export const GAME_LIST = Object.freeze([
-  Object.freeze({ gameID: "match3", durs: Object.freeze([30, 60]) }),
+  Object.freeze({ gameID: "match3", durs: Object.freeze([30, 60]), scoreVersion: "dish1" }),
   Object.freeze({ gameID: "stacker", durs: Object.freeze([30, 60]) }),
   Object.freeze({ gameID: "runner", durs: Object.freeze([30, 60]) }),
   Object.freeze({ gameID: "2048", durs: Object.freeze([30, 60]) }),
-  Object.freeze({ gameID: "linefit", durs: Object.freeze([30, 60]) }),
+  Object.freeze({ gameID: "linefit", durs: Object.freeze([60, 90]) }),
 ]);
 
 export function findGame(gameIdx) {

@@ -1,4 +1,5 @@
 import { encodeResultCode } from "./result-code.js";
+import { GAME_LIST } from "./game-list.js";
 
 export function buildChallengeSharePayload({
   nickname, score, gameIdx, gameID, gameDisplayName, iCode, strings, baseHref = location.href,
@@ -8,6 +9,8 @@ export function buildChallengeSharePayload({
   url.searchParams.set("g", String(gameIdx));
   url.searchParams.set("c", iCode);
   url.searchParams.set("r", encodeResultCode(score, gameID, iCode));
+  const scoreVersion = GAME_LIST.find((game) => game.gameID === gameID)?.scoreVersion;
+  if (scoreVersion !== undefined) url.searchParams.set("sv", scoreVersion);
   const scoreText = score === 0
     ? ""
     : `${strings.challengeShareScorePrefix}${score}${strings.challengeShareScoreSuffix}`;

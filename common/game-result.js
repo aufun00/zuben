@@ -1,10 +1,27 @@
-import { createChallengeEntry, saveChallengeOnce, updateChallengeBestScore } from "./challenges.js";
+import { createChallengeEntry, recordChallengeBestScore, saveChallengeOnce } from "./challenges.js";
 import { getPreference, loadChallenges, saveChallenges } from "./storage.js";
 import { openChallengeShareDialog } from "./share-dialog.js";
+import { emitEventSignal } from "./event-signal.js";
+import { PHASE_ENDED } from "./game-controller.js";
 
-export function createGameResultView({ overlay, gameIdx, game, parsed, result, ghostScore, language, strings, localized }) {
+export function updateGameResultView({ phase, resultView, input, ...viewOptions }, createView = createGameResultView) {
+  if (phase !== PHASE_ENDED || resultView) return { input, resultView };
+  input?.destroy();
+  input = null;
+  resultView = createView(viewOptions);
+  return { input, resultView };
+}
+
+export function createGameResultView({ overlay, gameIdx, game, parsed, result, ghostScore, language, strings, localized, replayHref = location.href }) {
   const frozenResult = Object.freeze({ score: result.score, reason: result.reason });
-  updateChallengeBestScore({ gameID: game.gameID, iCode: parsed.code, score: frozenResult.score });
+  const bestScore = recordChallengeBestScore({
+    gameID: game.gameID,
+    iCode: parsed.code,
+    durIdx: parsed.durIdx,
+    duration: game.durs[parsed.durIdx],
+    language,
+    score: frozenResult.score,
+  });
   let activeLanguage = language;
   let activeStrings = strings;
   let activeLocalized = localized;
@@ -17,10 +34,10 @@ export function createGameResultView({ overlay, gameIdx, game, parsed, result, g
       <h1 data-result-outcome></h1>
       <p class="result-reason" data-result-reason></p>
       <strong class="result-score" data-result-score></strong>
-      <button class="result-action primary" type="button" data-share-score></button>
+      <button class="result-action primary" type="button" data-share-score><span class="crystal-button-label"></span></button>
       <div class="result-secondary-actions">
-        <button class="result-action" type="button" data-new-challenge></button>
-        <button class="result-action" type="button" data-other-games></button>
+        <button class="result-action" type="button" data-new-challenge><span class="crystal-button-label"></span></button>
+        <button class="result-action" type="button" data-other-games><span class="crystal-button-label"></span></button>
       </div>
     </article>
   `;
@@ -52,21 +69,26 @@ export function createGameResultView({ overlay, gameIdx, game, parsed, result, g
     overlay.querySelector("[data-result-outcome]").textContent = activeStrings[`result${capitalize(outcome)}`];
     overlay.querySelector("[data-result-reason]").textContent = activeLocalized.resultReasons?.[frozenResult.reason] ?? activeLocalized.timeUp ?? frozenResult.reason;
     overlay.querySelector("[data-result-score]").textContent = String(frozenResult.score);
-    scoreButton.textContent = activeStrings.shareMyScore;
-    challengeButton.textContent = activeStrings.startNewChallenge;
-    overlay.querySelector("[data-other-games]").textContent = activeStrings.otherGames;
+    scoreButton.querySelector(".crystal-button-label").textContent = activeStrings.shareMyScore;
+    challengeButton.querySelector(".crystal-button-label").textContent = activeStrings.startNewChallenge;
+    overlay.querySelector("[data-other-games] .crystal-button-label").textContent = activeStrings.otherGames;
   }
 
   function openScoreShareDialog() {
     openChallengeShareDialog({
-      challenge: { gameID: game.gameID, iCode: parsed.code, score: frozenResult.score },
+      challenge: { gameID: game.gameID, iCode: parsed.code, score: bestScore },
       gameIdx,
       gameDisplayName: activeLocalized.name,
       nickname: currentNickname(),
       language: activeLanguage,
       strings: activeStrings,
       returnFocus: scoreButton,
-      modalHost: overlay,
+      playHref: replayHref,
+      onShareOutcome(outcome) {
+        if (outcome !== "cancelled") {
+          emitEventSignal({ gameID: game.gameID, timeS: game.durs[parsed.durIdx], event: "shareScore" });
+        }
+      },
     });
   }
 
@@ -88,7 +110,6 @@ export function createGameResultView({ overlay, gameIdx, game, parsed, result, g
       language: activeLanguage,
       strings: activeStrings,
       returnFocus: challengeButton,
-      modalHost: overlay,
       onMemoChange(value) {
         const entries = loadChallenges();
         const entry = entries.find((item) => item.gameID === resultChallenge.gameID && item.iCode === resultChallenge.iCode);

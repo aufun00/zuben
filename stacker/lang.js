@@ -14,7 +14,8 @@ export const GAME_LANG = {
       solid: "矩形", frame: "外框", plus: "十字", x: "X形", diamond: "菱形",
       diamondRing: "空心菱形", octagon: "八边形", star: "星形", z: "Z形", s: "S形",
     },
-    resultReasons: { miss: "砖块完全落空", deadline: "时间到" },
+    energy: "叠高不使用充能",
+    resultReasons: { MISS: "砖块完全落空", TIME_UP: "时间到" },
     timeUp: "时间到",
   },
   en: {
@@ -32,7 +33,8 @@ export const GAME_LANG = {
       solid: "Solid", frame: "Frame", plus: "Plus", x: "X", diamond: "Diamond",
       diamondRing: "Diamond ring", octagon: "Octagon", star: "Star", z: "Z", s: "S",
     },
-    resultReasons: { miss: "The brick missed completely", deadline: "Time is up" },
+    energy: "Stacker does not use charge",
+    resultReasons: { MISS: "The brick missed completely", TIME_UP: "Time is up" },
     timeUp: "Time is up",
   },
 };

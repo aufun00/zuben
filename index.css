@@ -2,69 +2,76 @@
   color-scheme: dark;
   font-family: Inter, ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, sans-serif;
   font-synthesis: none;
-  --bg: #10121a;
-  --surface: #191c28;
-  --surface-2: #222638;
-  --line: #30364d;
+  --bg: #141b18;
+  --surface: #1b2521;
+  --surface-2: #25312c;
+  --line: #364941;
   --text: #f7f7fb;
   --muted: #a7aec4;
   --accent: #85f2c5;
-  --accent-2: #a9a0ff;
+  --accent-2: #55cfa2;
   --danger: #ff7385;
   --warning: #ffb15f;
   --lead: #57efbd;
   --trail: #ff6f82;
-  --even: #8290b3;
-  --quiet: #858da5;
+  --even: #9aa9a2;
+  --quiet: #98a8a0;
   --accent-ink: #09251c;
-  --backdrop: #090a10cc;
-  --game-zone-glow: #29304a;
-  --rules-bg: #10121ad9;
-  --countdown-bg: #10121ae8;
-  --game-overlay-bg: #10121af2;
-  --match-board-bg: #0d1019aa;
-  --tug-track: #0b0d14;
-  --tug-line: #3a4057;
+  --backdrop: #0b100ecc;
+  --game-zone-glow: #263a32;
+  --rules-bg: #141b18d9;
+  --countdown-bg: #141b18e8;
+  --game-overlay-bg: #141b18f2;
+  --match-board-bg: #101713aa;
+  --tug-track: #0e1512;
+  --tug-line: #40594f;
   --focus-ring: #fff;
-  --result-score: #38cfff;
-  --stacker-scene-glow: #2c3450;
-  --stacker-scene-edge: #11141f;
-  --stacker-chip-bg: #0c0f18bb;
+  --result-score: #85f2c5;
+  --stacker-scene-glow: #294139;
+  --stacker-scene-edge: #121b17;
+  --stacker-chip-bg: #0d1511bb;
   --stacker-chip-line: #ffffff24;
+  --crystal-border: #83e5be;
+  --crystal-top: #62d6aa;
+  --crystal-middle: #2eb684;
+  --crystal-bottom: #147151;
+  --crystal-highlight: #ddfff1b8;
+  --crystal-shade: #073c2b99;
+  --crystal-text-shadow: #063426cc;
   --radius: 20px;
 }
 
 @media (prefers-color-scheme: light) {
   :root {
     color-scheme: light;
-    --bg: #f3f7f5;
-    --surface: #fff;
-    --surface-2: #e5eeea;
-    --line: #aebfb7;
+    --bg: #e4ece8;
+    --surface: #f1f5f3;
+    --surface-2: #d8e4de;
+    --line: #a5b9af;
     --text: #14211b;
     --muted: #4d6259;
-    --accent: #087657;
-    --accent-2: #5c50b5;
+    --accent: #066b4f;
+    --accent-2: #146b51;
     --danger: #b4233c;
     --warning: #9a4b00;
-    --lead: #087657;
+    --lead: #066b4f;
     --trail: #b4233c;
-    --even: #59677b;
-    --quiet: #596b63;
+    --even: #4f5d57;
+    --quiet: #4c5f56;
     --accent-ink: #fff;
     --backdrop: #17201dcc;
-    --game-zone-glow: #dce9e4;
-    --rules-bg: #fffffff2;
-    --countdown-bg: #f3f7f5f2;
-    --game-overlay-bg: #f3f7f5f2;
-    --match-board-bg: #dfe9e5cc;
-    --tug-track: #dbe5e1;
-    --tug-line: #80938b;
+    --game-zone-glow: #d3e2db;
+    --rules-bg: #f1f5f3f2;
+    --countdown-bg: #e4ece8f2;
+    --game-overlay-bg: #e4ece8f2;
+    --match-board-bg: #d5e1dbcc;
+    --tug-track: #cfddd6;
+    --tug-line: #789086;
     --focus-ring: #14211b;
-    --result-score: #075fce;
-    --stacker-scene-glow: #dce9e4;
-    --stacker-scene-edge: #bfcfc8;
-    --stacker-chip-bg: #ffffffd9;
+    --result-score: #157a5b;
+    --stacker-scene-glow: #d3e2db;
+    --stacker-scene-edge: #b6cac0;
+    --stacker-chip-bg: #f1f5f3d9;
     --stacker-chip-line: #14211b33;
   }
 }
@@ -73,6 +80,7 @@
 
 html, body { width: 100%; margin: 0; min-height: 100%; overflow-x: hidden; background: var(--bg); color: var(--text); }
 body { min-width: 320px; min-height: 100dvh; }
+body:has(#app > .game-page-fixed-ui) { display: grid; place-items: center; }
 button, input, textarea { font: inherit; }
 button { color: inherit; }
 
@@ -93,13 +101,13 @@ button { color: inherit; }
 
 #app { min-height: 100dvh; }
 #app:has(> .game-page) { display: grid; height: 100dvh; min-height: 0; grid-template-rows: auto minmax(0, 1fr); }
-#app:has(> .game-page-fixed-ui) { width: 360px; height: 648px; min-height: 648px; margin-inline: auto; grid-template-rows: 48px 600px; aspect-ratio: 5 / 9; zoom: min(1, calc(100vw / 360px)); }
+#app:has(> .game-page-fixed-ui) { width: 360px; height: 648px; min-height: 648px; margin: auto; grid-template-rows: 48px 600px; aspect-ratio: 5 / 9; zoom: min(1.0833333333, calc(100vw / 360px), calc(100dvh / 648px)); }
 #app:has(> .game-page-fixed-ui) > .app-header { height: 48px; min-height: 48px; }
 .storage-warning { padding: 8px 14px; border-bottom: 1px solid var(--danger); background: color-mix(in srgb, var(--danger), transparent 86%); color: var(--text); text-align: center; font-size: 12px; }
 
 .app-header {
   position: sticky;
-  z-index: 20;
+  z-index: 30;
   top: 0;
   width: 100%;
   max-width: 100vw;

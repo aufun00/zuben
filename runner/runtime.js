@@ -1,4 +1,5 @@
 import { SCORE_MAX } from "../common/protocol-constants.js";
+import { createGameTime, DEADLINE_SETTLEMENT_MS } from "../common/game-time.js";
 
 export const PHASE_INIT = "PHASE_INIT";
 export const PHASE_READY = "PHASE_READY";
@@ -12,56 +13,7 @@ const TYPE_GAME_BAR_CLICK = "GameBarClick";
 const TYPE_PAUSE_GAME = "PauseGame";
 const TYPE_START_GAME = "StartGame";
 const TYPE_PLAYER_ACTION = "PAction";
-
-export function createGameTime() {
-  let startAt = null;
-  let pauseAt = null;
-  let limitGT = null;
-
-  return Object.freeze({
-    reset(baseNow) {
-      startAt = baseNow;
-      pauseAt = null;
-    },
-    pause(baseNow) {
-      if (startAt === null || pauseAt !== null) return;
-      pauseAt = baseNow;
-    },
-    pauseAndJumpTo(baseNow, targetGT) {
-      if (startAt === null || pauseAt !== null) return;
-      const currentGT = baseNow - startAt;
-      const jumpGT = Number.isFinite(targetGT) ? Math.max(0, targetGT - currentGT) : 0;
-      pauseAt = baseNow;
-      startAt -= jumpGT;
-    },
-    resume(baseNow) {
-      if (startAt === null || pauseAt === null) return;
-      startAt += baseNow - pauseAt;
-      pauseAt = null;
-    },
-    getGT(baseNow) {
-      if (startAt === null) return null;
-      return (pauseAt ?? baseNow) - startAt;
-    },
-    getBN(gameTime) {
-      if (startAt === null || pauseAt !== null || !Number.isFinite(gameTime)) return null;
-      return startAt + gameTime;
-    },
-    setLimit(limitMS) {
-      if (!Number.isFinite(limitMS) || limitMS < 0) {
-        limitGT = null;
-        return false;
-      }
-      limitGT = limitMS;
-      return true;
-    },
-    isTimeUp(baseNow) {
-      if (limitGT === null) return false;
-      const currentGT = this.getGT(baseNow);
-      return currentGT !== null && currentGT >= limitGT;
-    },
-  });
-}
+const TYPE_FINISH_SETTLEMENT = "FinishSettlement";
 
 export function createRunnerRuntime({
   cfg,
@@ -75,8 +27,7 @@ export function createRunnerRuntime({
   onPump,
   onError,
 }) {
-  const gameTime = createGameTime();
-  if (!gameTime.setLimit(limitMS)) throw new RangeError("limitMS must be nonnegative");
+  const gameTime = createGameTime(limitMS);
   let phase = PHASE_INIT;
   let runLane = cfg.InitialLane;
   let runRoadIndex = 0;
@@ -87,6 +38,7 @@ export function createRunnerRuntime({
   let runScore = 0;
   let runEndReason = null;
   let runEndedGT = null;
+  let settling = false;
   let nextSequence = 0;
   let destroyed = false;
   let pumping = false;
@@ -125,12 +77,16 @@ export function createRunnerRuntime({
     pumpDueBN = null;
     const tickBN = readBN();
     try {
-      if (phase === PHASE_RUNNING && gameTime.isTimeUp(tickBN)) {
+      const deadlineBN = gameTime.getDeadlineBN();
+      if (phase === PHASE_RUNNING && settling) {
+        drainQueue(tickBN, tickBN);
+      } else if (phase === PHASE_RUNNING && deadlineBN !== null && tickBN >= deadlineBN) {
         runDeadline(tickBN);
       } else {
         drainQueue(tickBN, tickBN);
         if (phase === PHASE_RUNNING) {
-          if (gameTime.isTimeUp(tickBN)) runDeadline(tickBN);
+          const currentDeadlineBN = gameTime.getDeadlineBN();
+          if (currentDeadlineBN !== null && tickBN >= currentDeadlineBN) runDeadline(tickBN);
           else advanceTo(gameTime.getGT(tickBN));
         }
       }
@@ -139,20 +95,20 @@ export function createRunnerRuntime({
     } finally {
       pumping = false;
     }
-    if (phase === PHASE_PREPARING || phase === PHASE_RUNNING) schedulePump();
+    if (iQ.length > 0 || phase === PHASE_PREPARING || phase === PHASE_RUNNING) schedulePump();
   }
 
   function runDeadline(tickBN) {
-    const deadlineBN = gameTime.getBN(limitMS);
+    const deadlineBN = gameTime.getDeadlineBN();
     if (deadlineBN === null) throw new Error("Runner deadline is unavailable");
     drainQueue(deadlineBN, tickBN);
     if (phase !== PHASE_RUNNING) return;
-    advanceTo(limitMS);
-    if (phase === PHASE_RUNNING) end("TIME_UP", limitMS);
+    advanceTo(limitMS, false);
+    if (phase === PHASE_RUNNING) beginSettlement(tickBN);
   }
 
   function drainQueue(upToBN, tickBN) {
-    while (iQ.length && iQ[0].BN <= upToBN) {
+    while (iQ.length && iQ[0].BN < upToBN) {
       const item = iQ.shift();
       handleItem(item, tickBN);
       if (phase === PHASE_ENDED || phase === PHASE_ERROR) return;
@@ -162,6 +118,7 @@ export function createRunnerRuntime({
   function handleItem(item, tickBN) {
     if (item.type === TYPE_GAME_BAR_CLICK) {
       if (phase === PHASE_READY || phase === PHASE_PAUSED) beginPreparing(tickBN);
+      else if (phase === PHASE_RUNNING && settling) end("TIME_UP", limitMS);
       else if (phase === PHASE_RUNNING) pauseAt(item.BN);
       return;
     }
@@ -169,6 +126,8 @@ export function createRunnerRuntime({
       if (phase === PHASE_PREPARING) {
         removeQueuedStarts();
         phase = PHASE_PAUSED;
+      } else if (phase === PHASE_RUNNING && settling) {
+        end("TIME_UP", limitMS);
       } else if (phase === PHASE_RUNNING) {
         pauseAt(item.BN);
       }
@@ -176,13 +135,19 @@ export function createRunnerRuntime({
     }
     if (item.type === TYPE_START_GAME) {
       if (phase !== PHASE_PREPARING) return;
-      if (gameTime.getGT(tickBN) === null) gameTime.reset(tickBN);
-      else gameTime.resume(tickBN);
       phase = PHASE_RUNNING;
+      publishSnapshot(tickBN);
+      const startBN = readBN();
+      if (gameTime.getGT(startBN) === null) gameTime.reset(startBN);
+      else gameTime.resume(startBN);
+      return;
+    }
+    if (item.type === TYPE_FINISH_SETTLEMENT) {
+      if (phase === PHASE_RUNNING && settling) end("TIME_UP", limitMS);
       return;
     }
     if (item.type === TYPE_PLAYER_ACTION) {
-      if (phase !== PHASE_RUNNING) return;
+      if (phase !== PHASE_RUNNING || settling) return;
       const actionGT = gameTime.getGT(item.BN);
       if (actionGT === null || actionGT < runSimGT) return;
       advanceTo(Math.min(actionGT, limitMS));
@@ -207,13 +172,13 @@ export function createRunnerRuntime({
     phase = PHASE_PAUSED;
   }
 
-  function advanceTo(targetGT) {
+  function advanceTo(targetGT, includeBoundary = true) {
     if (phase !== PHASE_RUNNING || !Number.isFinite(targetGT) || targetGT < runSimGT) return;
     while (runRoadIndex < road.length) {
       const station = road[runRoadIndex];
       const distanceLeft = station.at - runDistance;
       const arrivalGT = runSimGT + distanceLeft * cfg.NormalSpeed / runSpeed * 1_000;
-      if (arrivalGT > targetGT) break;
+      if (arrivalGT > targetGT || (!includeBoundary && arrivalGT === targetGT)) break;
       runSimGT = arrivalGT;
       runDistance = station.at;
       collide(station.lanes[runLane]);
@@ -240,6 +205,7 @@ export function createRunnerRuntime({
 
   function end(reason, atGT) {
     phase = PHASE_ENDED;
+    settling = false;
     runEndReason = reason;
     runEndedGT = atGT;
     removeQueuedStarts();
@@ -265,9 +231,18 @@ export function createRunnerRuntime({
       runScore,
       runEndReason,
       runEndedGT,
+      settling,
       result: phase === PHASE_ENDED ? Object.freeze({ score: runScore, reason: runEndReason }) : null,
     });
     onSnapshot?.(latestSnapshot);
+  }
+
+  function beginSettlement(tickBN) {
+    settling = true;
+    runEndReason = "TIME_UP";
+    runEndedGT = limitMS;
+    iQ.length = 0;
+    insertInternal(TYPE_FINISH_SETTLEMENT, tickBN + DEADLINE_SETTLEMENT_MS);
   }
 
   function schedulePump() {
@@ -295,6 +270,7 @@ export function createRunnerRuntime({
       operation();
     } catch (error) {
       phase = PHASE_ERROR;
+      settling = false;
       if (pumpTimer !== null) clearTimer(pumpTimer);
       pumpTimer = null;
       pumpDueBN = null;
@@ -313,7 +289,7 @@ export function createRunnerRuntime({
       return enqueue(TYPE_PLAYER_ACTION, BN, { laneDelta });
     },
     shouldYieldRender(BN = readBN()) {
-      return !destroyed && ((pumpDueBN !== null && BN >= pumpDueBN) || (iQ[0]?.BN ?? Infinity) <= BN);
+      return !destroyed && ((pumpDueBN !== null && BN >= pumpDueBN) || (iQ[0]?.BN ?? Infinity) < BN);
     },
     wakePump,
     destroy() {

@@ -1,12 +1,18 @@
 import {
+  disposeGamePageResources,
+  ensureGameStylesheet,
+  failGamePage,
   formatRemaining,
+  handleGameVisibilityChange,
   renderControllerFailure,
   renderGameShell,
-  setControlButton,
+  updateGameControlButton,
+  updateGamePhasePresentation,
+  updateGameSurfaceState,
   updateTugBar,
 } from "../common/game-shell.js";
 import { updateGameBarCharge } from "../common/game-bar-charge.js";
-import { createGameResultView } from "../common/game-result.js";
+import { updateGameResultView } from "../common/game-result.js";
 import { bindGameInput } from "../common/gesture-input.js";
 import { cfg, LINEFIT_PERFORMANCE_CFG, LINEFIT_SHAPES } from "./config.js";
 import { GAME_LANG } from "./lang.js";
@@ -14,14 +20,11 @@ import { createLineFitRenderer } from "./render.js";
 import {
   OPERATION_IDLE,
   PHASE_ENDED,
-  PHASE_ERROR,
-  PHASE_PAUSED,
-  PHASE_READY,
   PHASE_RUNNING,
   createLineFitRuntime,
 } from "./runtime.js";
 
-ensureStylesheet();
+ensureGameStylesheet(import.meta.url);
 
 export function renderGamePage(mount, context) {
   renderGameShell(mount, {
@@ -42,6 +45,7 @@ function setupLineFit({ page, gameZone, game, gameIdx, parsed, durationMs, ghost
   let runtime = null;
   let destroyed = false;
   let failed = false;
+  let failureCode = null;
   let forceChrome = true;
   let renderedPhase = null;
   let renderedTime = null;
@@ -84,7 +88,7 @@ function setupLineFit({ page, gameZone, game, gameIdx, parsed, durationMs, ghost
     });
     renderer = createLineFitRenderer({ gameZone, runtime, performanceMeter });
   } catch (error) {
-    onError(error);
+    onError(error, "INIT");
     return { cleanup() {} };
   }
 
@@ -106,11 +110,7 @@ function setupLineFit({ page, gameZone, game, gameIdx, parsed, durationMs, ghost
     if (destroyed || failed || !snapshot) return;
     const enteredRunning = latestSnapshot?.phase !== PHASE_RUNNING && snapshot.phase === PHASE_RUNNING;
     latestSnapshot = snapshot;
-    const phaseChanged = renderedPhase !== snapshot.phase;
-    if (phaseChanged) {
-      performanceMeter.setPhase(snapshot.phase);
-      gameZone.dataset.phase = snapshot.phase;
-    }
+    const phaseChanged = updateGamePhasePresentation({ gameZone, playfield, performanceMeter }, { phase: snapshot.phase, previousPhase: renderedPhase, settling: snapshot.settling });
     const timeText = formatRemaining(snapshot.remainingMS);
     if (forceChrome || renderedTime !== timeText) {
       page.querySelector("[data-time]").textContent = timeText;
@@ -135,26 +135,8 @@ function setupLineFit({ page, gameZone, game, gameIdx, parsed, durationMs, ghost
     }
     const button = page.querySelector(".game-button");
     if (phaseChanged || forceChrome) {
-      if (snapshot.phase === PHASE_READY) {
-        button.disabled = false;
-        setControlButton(button, "play", activeStrings.start);
-      } else if (snapshot.phase === PHASE_RUNNING) {
-        button.disabled = false;
-        setControlButton(button, "pause", activeStrings.pause);
-      } else if (snapshot.phase === PHASE_PAUSED) {
-        button.disabled = false;
-        setControlButton(button, "play", activeStrings.resume);
-      } else if (snapshot.phase === PHASE_ENDED) {
-        button.disabled = true;
-        setControlButton(button, "finish", activeStrings.finished);
-      } else if (snapshot.phase === PHASE_ERROR) {
-        button.disabled = true;
-        setControlButton(button, "finish", activeStrings.failed);
-      }
-      cover.hidden = snapshot.phase === PHASE_RUNNING || snapshot.phase === PHASE_ENDED;
-      playfield.tabIndex = snapshot.phase === PHASE_RUNNING ? 0 : -1;
-      playfield.setAttribute("aria-disabled", String(snapshot.phase !== PHASE_RUNNING));
-      overlay.hidden = snapshot.phase !== PHASE_ENDED;
+      updateGameControlButton(button, snapshot.phase, activeStrings);
+      updateGameSurfaceState({ cover, playfield, overlay }, snapshot.phase);
     }
 
     if (snapshot.phase !== PHASE_RUNNING || snapshot.operation !== OPERATION_IDLE) {
@@ -162,41 +144,24 @@ function setupLineFit({ page, gameZone, game, gameIdx, parsed, durationMs, ghost
       renderer?.cancelDrag();
     }
     if (enteredRunning) playfield.focus({ preventScroll: true });
-    if (snapshot.phase === PHASE_ENDED && !resultView) {
-      resultView = createGameResultView({
-        overlay,
-        gameIdx,
-        game,
-        parsed,
-        result: snapshot.result,
-        ghostScore,
-        language: document.documentElement.lang.startsWith("zh") ? "zh" : "en",
-        strings: activeStrings,
-        localized: activeLocalized,
-      });
-    }
+    ({ input, resultView } = updateGameResultView({
+      phase: snapshot.phase, resultView, input,
+      overlay, gameIdx, game, parsed, result: snapshot.result, ghostScore,
+      language: document.documentElement.lang.startsWith("zh") ? "zh" : "en",
+      strings: activeStrings, localized: activeLocalized,
+    }));
     renderedPhase = snapshot.phase;
     forceChrome = false;
   }
 
   function onVisibility() {
-    if (document.hidden) {
-      input?.cancelSession();
-      renderer?.cancelDrag();
-      runtime?.enqueuePause(performance.now());
-      renderer?.setVisible(false);
-    } else {
-      renderer?.setVisible(true);
-    }
+    handleGameVisibilityChange({ hidden: document.hidden, input, runtime, renderer, onHide: () => renderer?.cancelDrag() });
   }
 
-  function onError(error) {
-    console.error("LineFit failed", error);
+  function onError(error, stage = "RUNTIME") {
     failed = true;
-    input?.destroy();
-    renderer?.destroy();
-    runtime?.destroy();
-    renderControllerFailure(page, activeStrings);
+    const failure = failGamePage({ gameID: game.gameID, stage, error, page, strings: activeStrings, visibilityHandler: onVisibility, input, renderer, runtime });
+    ({ input, renderer, runtime, errorCode: failureCode } = failure);
   }
 
   function renderInstructionText() {
@@ -213,7 +178,7 @@ function setupLineFit({ page, gameZone, game, gameIdx, parsed, durationMs, ghost
       activeStrings = nextStrings;
       activeLocalized = nextLocalized;
       if (failed) {
-        renderControllerFailure(page, activeStrings);
+        renderControllerFailure(page, activeStrings, failureCode);
         return;
       }
       renderInstructionText();
@@ -228,19 +193,7 @@ function setupLineFit({ page, gameZone, game, gameIdx, parsed, durationMs, ghost
     cleanup() {
       if (destroyed) return;
       destroyed = true;
-      document.removeEventListener("visibilitychange", onVisibility);
-      input?.destroy();
-      renderer?.destroy();
-      runtime?.destroy();
+      ({ input, renderer, runtime } = disposeGamePageResources({ visibilityHandler: onVisibility, input, renderer, runtime }));
     },
   };
-}
-
-function ensureStylesheet() {
-  const href = new URL("./game.css", import.meta.url).href;
-  if (document.querySelector(`link[href="${href}"]`)) return;
-  const link = document.createElement("link");
-  link.rel = "stylesheet";
-  link.href = href;
-  document.head.append(link);
 }

@@ -1,11 +1,17 @@
 import {
+  disposeGamePageResources,
+  ensureGameStylesheet,
+  failGamePage,
   formatRemaining,
+  handleGameVisibilityChange,
   renderControllerFailure,
   renderGameShell,
-  setControlButton,
+  updateGameControlButton,
+  updateGamePhasePresentation,
+  updateGameSurfaceState,
   updateTugBar,
 } from "../common/game-shell.js";
-import { createGameResultView } from "../common/game-result.js";
+import { updateGameResultView } from "../common/game-result.js";
 import { bindGameInput } from "../common/gesture-input.js";
 import { cfg, RUNNER_OBJECTS, RUNNER_PERFORMANCE_CFG } from "./config.js";
 import { GAME_LANG } from "./lang.js";
@@ -13,16 +19,13 @@ import { createRunnerRenderer } from "./render.js";
 import { generateRoad } from "./road.js";
 import {
   PHASE_ENDED,
-  PHASE_ERROR,
-  PHASE_PAUSED,
   PHASE_PREPARING,
-  PHASE_READY,
   PHASE_RUNNING,
   createRunnerRuntime,
 } from "./runtime.js";
 import { RUNNER_SVG, runnerSymbolMarkup } from "./svg.js";
 
-ensureStylesheet();
+ensureGameStylesheet(import.meta.url);
 
 export function renderGamePage(mount, context) {
   renderGameShell(mount, {
@@ -43,6 +46,7 @@ function setupRunner({ page, gameZone, game, gameIdx, parsed, durationMs, ghostS
   let runtime = null;
   let destroyed = false;
   let failed = false;
+  let failureCode = null;
 
   gameZone.classList.add("runner-zone");
   gameZone.innerHTML = `
@@ -99,7 +103,7 @@ function setupRunner({ page, gameZone, game, gameIdx, parsed, durationMs, ghostS
       performanceMeter,
     });
   } catch (error) {
-    onError(error);
+    onError(error, "INIT");
     return { cleanup() {} };
   }
 
@@ -119,70 +123,38 @@ function setupRunner({ page, gameZone, game, gameIdx, parsed, durationMs, ghostS
 
   function onSnapshot(snapshot) {
     if (destroyed || failed || !snapshot) return;
-    const enteredRunning = latestSnapshot?.phase !== PHASE_RUNNING && snapshot.phase === PHASE_RUNNING;
+    const previousPhase = latestSnapshot?.phase;
     latestSnapshot = snapshot;
-    performanceMeter.setPhase(snapshot.phase);
-    gameZone.dataset.phase = snapshot.phase;
+    const phaseChanged = updateGamePhasePresentation({ gameZone, playfield, performanceMeter }, { phase: snapshot.phase, previousPhase, settling: snapshot.settling });
+    const enteredRunning = phaseChanged && snapshot.phase === PHASE_RUNNING;
     page.querySelector("[data-time]").textContent = formatRemaining(snapshot.remainingMS);
     const ghostElapsed = snapshot.phase === PHASE_ENDED ? durationMs : snapshot.runGT;
     updateTugBar(page, snapshot.runScore, ghostScore, activeStrings, ghostElapsed, durationMs);
     const button = page.querySelector(".game-button");
-    if (snapshot.phase === PHASE_READY) {
-      button.disabled = false;
-      setControlButton(button, "play", activeStrings.start);
-    } else if (snapshot.phase === PHASE_PREPARING) {
-      button.disabled = true;
-      setControlButton(button, "clock", activeStrings.ready);
-    } else if (snapshot.phase === PHASE_RUNNING) {
-      button.disabled = false;
-      setControlButton(button, "pause", activeStrings.pause);
-    } else if (snapshot.phase === PHASE_PAUSED) {
-      button.disabled = false;
-      setControlButton(button, "play", activeStrings.resume);
-    } else if (snapshot.phase === PHASE_ENDED) {
-      button.disabled = true;
-      setControlButton(button, "finish", activeStrings.finished);
-    }
+    updateGameControlButton(button, snapshot.phase, activeStrings);
     countdown.hidden = snapshot.phase !== PHASE_PREPARING;
     if (snapshot.phase === PHASE_PREPARING) countdown.value = String(Math.max(1, Math.ceil(snapshot.prepareRemainingMS / 1_000)));
-    cover.hidden = snapshot.phase === PHASE_RUNNING || snapshot.phase === PHASE_ENDED;
-    playfield.tabIndex = snapshot.phase === PHASE_RUNNING ? 0 : -1;
-    playfield.setAttribute("aria-disabled", String(snapshot.phase !== PHASE_RUNNING));
+    updateGameSurfaceState({ cover, playfield, overlay }, snapshot.phase);
     if (enteredRunning) playfield.focus({ preventScroll: true });
-    overlay.hidden = snapshot.phase !== PHASE_ENDED;
-    if (snapshot.phase === PHASE_ENDED && !resultView) {
-      runnerInput?.cancelSession();
-      resultView = createGameResultView({
-        overlay,
-        gameIdx,
-        game,
-        parsed,
-        result: snapshot.result,
-        ghostScore,
-        language: document.documentElement.lang.startsWith("zh") ? "zh" : "en",
-        strings: activeStrings,
-        localized: activeLocalized,
-      });
-    }
+    ({ input: runnerInput, resultView } = updateGameResultView({
+      phase: snapshot.phase, resultView, input: runnerInput,
+      overlay, gameIdx, game, parsed, result: snapshot.result, ghostScore,
+      language: document.documentElement.lang.startsWith("zh") ? "zh" : "en",
+      strings: activeStrings, localized: activeLocalized,
+    }));
   }
 
   function onVisibility() {
-    if (document.hidden) {
-      runnerInput?.cancelSession();
-      runtime?.enqueuePause(performance.now());
-      renderer?.setVisible(false);
-    } else {
-      renderer?.setVisible(true);
-    }
+    handleGameVisibilityChange({ hidden: document.hidden, input: runnerInput, runtime, renderer });
   }
 
-  function onError(error) {
-    console.error("Runner failed", error);
+  function onError(error, stage = "RUNTIME") {
     failed = true;
-    runnerInput?.destroy();
-    renderer?.destroy();
-    runtime?.destroy();
-    renderControllerFailure(page, activeStrings);
+    const failure = failGamePage({ gameID: game.gameID, stage, error, page, strings: activeStrings, visibilityHandler: onVisibility, input: runnerInput, renderer, runtime });
+    runnerInput = failure.input;
+    renderer = failure.renderer;
+    runtime = failure.runtime;
+    failureCode = failure.errorCode;
   }
 
   function renderInstructionText() {
@@ -200,7 +172,7 @@ function setupRunner({ page, gameZone, game, gameIdx, parsed, durationMs, ghostS
       activeStrings = nextStrings;
       activeLocalized = nextLocalized;
       if (failed) {
-        renderControllerFailure(page, activeStrings);
+        renderControllerFailure(page, activeStrings, failureCode);
         return;
       }
       renderInstructionText();
@@ -214,19 +186,10 @@ function setupRunner({ page, gameZone, game, gameIdx, parsed, durationMs, ghostS
     cleanup() {
       if (destroyed) return;
       destroyed = true;
-      document.removeEventListener("visibilitychange", onVisibility);
-      runnerInput?.destroy();
-      renderer?.destroy();
-      runtime?.destroy();
+      const resources = disposeGamePageResources({ visibilityHandler: onVisibility, input: runnerInput, renderer, runtime });
+      runnerInput = resources.input;
+      renderer = resources.renderer;
+      runtime = resources.runtime;
     },
   };
-}
-
-function ensureStylesheet() {
-  const href = new URL("./game.css", import.meta.url).href;
-  if (document.querySelector(`link[href="${href}"]`)) return;
-  const link = document.createElement("link");
-  link.rel = "stylesheet";
-  link.href = href;
-  document.head.append(link);
 }
