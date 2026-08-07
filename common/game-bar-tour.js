@@ -11,7 +11,7 @@ const TOUR_STEP_SELECTORS = Object.freeze([
   "[data-game-bar-charge]",
 ]);
 
-export function createGameBarTour(page, strings) {
+export function createGameBarTour(page, strings, { unlimited = false } = {}) {
   if (!page?.querySelector || getPreference("gameBarTour", "") === GAME_BAR_TOUR_VERSION) {
     return inactiveBinding();
   }
@@ -60,10 +60,16 @@ export function createGameBarTour(page, strings) {
 
   function render() {
     if (destroyed) return;
+    const labels = [...activeStrings.gameBarTourLabels];
+    const steps = [...activeStrings.gameBarTourSteps];
+    if (unlimited) {
+      labels[0] = activeStrings.elapsed;
+      steps[0] = activeStrings.gameBarTourUnlimitedTime;
+    }
     tour.querySelector("[data-game-bar-tour-title]").textContent = activeStrings.gameBarTourTitle;
-    tour.querySelector(".game-bar-tour-callouts").innerHTML = activeStrings.gameBarTourSteps.map((copy, index) => `
+    tour.querySelector(".game-bar-tour-callouts").innerHTML = steps.map((copy, index) => `
       <article class="game-bar-tour-callout" data-game-bar-tour-callout="${index}">
-        <h3><span class="game-bar-tour-number">${index + 1}</span>${escapeHTML(activeStrings.gameBarTourLabels[index])}</h3>
+        <h3><span class="game-bar-tour-number">${index + 1}</span>${escapeHTML(labels[index])}</h3>
         <p>${escapeHTML(copy)}</p>
       </article>
     `).join("");

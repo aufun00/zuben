@@ -17,6 +17,7 @@
 .stacker-rules ol { display: grid; gap: 8px; margin: 16px 0 0; padding-left: 22px; color: var(--muted); text-align: left; line-height: 1.45; }
 .stacker-overlay { position: absolute; z-index: 5; inset: 0; overflow: auto; border-radius: inherit; background: var(--game-overlay-bg); }
 .stacker-overlay[hidden] { display: none; }
+.stacker-checkpoint-dialog p { margin: 0; color: var(--muted); line-height: 1.5; }
 .stacker-zone.is-landing .stacker-layer.landed:last-of-type { animation: stacker-land var(--stacker-land-ms) ease-out; }
 .stacker-zone.is-miss .stacker-scene { animation: stacker-miss var(--stacker-land-ms) ease-out; }
 @keyframes stacker-land { from { opacity: .25; transform: translateY(-18px); } to { opacity: 1; transform: translateY(0); } }

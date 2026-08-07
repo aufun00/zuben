@@ -24,6 +24,7 @@ export function createStackerRuntime({
   shapes = STACKER_SHAPES,
   seed,
   limitMS,
+  checkpoint = null,
   readBN = () => performance.now(),
   setTimer = (callback, delay) => setTimeout(callback, delay),
   clearTimer = (timer) => clearTimeout(timer),
@@ -31,9 +32,15 @@ export function createStackerRuntime({
   onPump,
   onError,
 } = {}) {
-  if (!Number.isSafeInteger(limitMS) || limitMS <= 0) throw new RangeError("limitMS must be a positive safe integer");
+  const unlimited = limitMS === null;
+  if (!unlimited && (!Number.isSafeInteger(limitMS) || limitMS <= 0)) throw new RangeError("limitMS must be null or a positive safe integer");
+  if (checkpoint !== null && !unlimited) throw new TypeError("Only unlimited Stacker games can restore checkpoints");
+  const restoredGT = checkpoint === null ? null : checkpoint.runGT;
+  const restoredEnergy = checkpoint === null ? cfg.EnergyInitial : checkpoint.energy;
+  const restoredEnergyDecayGT = checkpoint === null ? 0 : checkpoint.energyDecayGT;
+  if (checkpoint !== null && (!Number.isFinite(restoredGT) || restoredGT < 0 || !checkpoint.engine || !Number.isSafeInteger(restoredEnergy) || restoredEnergy < cfg.EnergyMinimum || restoredEnergy > cfg.EnergyMaximum || !Number.isFinite(restoredEnergyDecayGT) || restoredEnergyDecayGT < 0 || restoredEnergyDecayGT > restoredGT)) throw new TypeError("Invalid Stacker runtime checkpoint");
   const gameTime = createGameTime(limitMS);
-  const engine = createStackerEngine({ seed, cfg, shapes });
+  const engine = createStackerEngine({ seed, cfg, shapes, checkpoint: checkpoint?.engine ?? null });
   let phase = PHASE_INIT;
   let operation = OPERATION_IDLE;
   let transition = null;
@@ -47,9 +54,19 @@ export function createStackerRuntime({
   let pumpTimer = null;
   let pumpDueBN = null;
   let latestSnapshot = null;
+  let energy = restoredEnergy;
+  let energyDecayGT = restoredEnergyDecayGT;
+  let latestCheckpoint = checkpoint === null ? null : freezeCheckpoint(restoredGT, engine.exportCheckpoint(), energy, energyDecayGT);
+  let checkpointRevision = checkpoint === null ? 0 : 1;
   const iQ = [];
 
-  phase = PHASE_READY;
+  if (checkpoint === null) phase = PHASE_READY;
+  else {
+    const anchorBN = readBN();
+    gameTime.reset(anchorBN - restoredGT);
+    gameTime.pause(anchorBN);
+    phase = PHASE_PAUSED;
+  }
   publishSnapshot(readBN());
 
   function enqueue(type, BN, data = null) {
@@ -129,8 +146,10 @@ export function createStackerRuntime({
       if (phase !== PHASE_RUNNING || item.data?.endGT !== transition?.endGT) return;
       if (operation === OPERATION_MISS) end("MISS", endedGT);
       else {
+        settleEnergy(item.data.endGT);
         operation = OPERATION_IDLE;
         transition = null;
+        captureCheckpoint(item.data.endGT);
       }
       return;
     }
@@ -153,8 +172,10 @@ export function createStackerRuntime({
     if (phase !== PHASE_RUNNING || operation !== OPERATION_IDLE || settling || terminalPending) return;
     if (item.data?.kind !== "drop") return;
     const actionGT = gameTime.getGT(item.BN);
-    if (actionGT === null || actionGT < 0 || actionGT >= limitMS) return;
-    const outcome = engine.drop(actionGT);
+    if (actionGT === null || actionGT < 0 || (!unlimited && actionGT >= limitMS)) return;
+    settleEnergy(actionGT);
+    const outcome = engine.drop(actionGT, energy);
+    if (outcome.kind === "land") energy = Math.min(cfg.EnergyMaximum, energy + Math.floor(outcome.layer.baseScore / cfg.EnergyChargeDivisor));
     const endGT = actionGT + cfg.LandingMS;
     operation = outcome.kind === "miss" ? OPERATION_MISS : OPERATION_LANDING;
     transition = Object.freeze({ kind: outcome.kind, startGT: actionGT, endGT, placed: outcome.placed, layer: outcome.layer ?? null });
@@ -172,18 +193,23 @@ export function createStackerRuntime({
     const pauseGT = gameTime.getGT(BN);
     if (pauseGT === null || pauseGT < 0) return;
     if (transition !== null) {
-      const targetGT = Math.min(transition.endGT, limitMS);
+      const targetGT = unlimited ? transition.endGT : Math.min(transition.endGT, limitMS);
+      settleEnergy(targetGT);
       gameTime.pauseAndJumpTo(BN, targetGT);
       remove(FINISH);
       operation = OPERATION_IDLE;
       transition = null;
+      captureCheckpoint(targetGT);
     } else {
+      settleEnergy(pauseGT);
       gameTime.pause(BN);
+      captureCheckpoint(pauseGT);
     }
     phase = PHASE_PAUSED;
   }
 
   function beginSettlement(tickBN) {
+    settleEnergy(limitMS);
     settling = true;
     endReason = "TIME_UP";
     endedGT = limitMS;
@@ -208,14 +234,18 @@ export function createStackerRuntime({
   function publishSnapshot(sampleBN) {
     const sampledGT = gameTime.getGT(sampleBN);
     const runGT = phase === PHASE_ENDED || settling ? endedGT : Math.max(0, sampledGT ?? 0);
+    if (phase === PHASE_RUNNING) settleEnergy(terminalPending ? endedGT : runGT);
     const game = engine.snapshot();
     const movingGT = transition?.kind === "miss" ? transition.startGT : runGT;
     latestSnapshot = Object.freeze({
       phase,
       operation,
+      unlimited,
       runGT,
-      remainingMS: Math.max(0, limitMS - runGT),
+      remainingMS: unlimited ? null : Math.max(0, limitMS - runGT),
       score: game.score,
+      energy,
+      scoreMultiplier: energy / cfg.EnergyMultiplierDivisor,
       layerCount: game.layerCount,
       footprint: game.footprint,
       layers: game.layers,
@@ -224,6 +254,8 @@ export function createStackerRuntime({
       endReason,
       endedGT,
       settling,
+      checkpoint: latestCheckpoint,
+      checkpointRevision,
       result: phase === PHASE_ENDED ? Object.freeze({ score: game.score, reason: endReason }) : null,
     });
     onSnapshot?.(latestSnapshot);
@@ -237,6 +269,20 @@ export function createStackerRuntime({
 
   function remove(type) {
     for (let index = iQ.length - 1; index >= 0; index -= 1) if (iQ[index].type === type) iQ.splice(index, 1);
+  }
+
+  function captureCheckpoint(runGT) {
+    if (!unlimited || !Number.isFinite(runGT) || runGT < 0) return;
+    latestCheckpoint = freezeCheckpoint(runGT, engine.exportCheckpoint(), energy, energyDecayGT);
+    checkpointRevision += 1;
+  }
+
+  function settleEnergy(targetGT) {
+    if (!Number.isFinite(targetGT) || targetGT < energyDecayGT) return;
+    const ticks = Math.floor((targetGT - energyDecayGT) / cfg.EnergyDecayMS);
+    if (ticks <= 0) return;
+    energyDecayGT += ticks * cfg.EnergyDecayMS;
+    energy = Math.max(cfg.EnergyMinimum, energy - ticks * cfg.EnergyDecayDelta);
   }
 
   function runSafely(fn) {
@@ -278,4 +324,8 @@ export function createStackerRuntime({
 
 function compare(left, right) {
   return left.BN - right.BN || left.sequence - right.sequence;
+}
+
+function freezeCheckpoint(runGT, engine, energy, energyDecayGT) {
+  return Object.freeze({ version: 1, runGT, engine, energy, energyDecayGT });
 }

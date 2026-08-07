@@ -8,7 +8,7 @@ export function createChallengeEntry({ gameID, durIdx, duration, language, now =
   return Object.freeze({
     gameID,
     iCode,
-    durationMark: Math.max(1, Math.round(duration / 10)),
+    durIdx,
     createdAt: now,
     memo: formatTime(now, language, "long"),
     bestScore: 0,

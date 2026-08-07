@@ -4,17 +4,18 @@ import { STACKER_SHAPES, cfg as defaultCfg } from "./config.js";
 
 const UINT32_RANGE = 0x1_0000_0000;
 
-export function createStackerEngine({ seed, cfg = defaultCfg, shapes = STACKER_SHAPES } = {}) {
+export function createStackerEngine({ seed, cfg = defaultCfg, shapes = STACKER_SHAPES, checkpoint = null } = {}) {
   validateStackerConfig(cfg, shapes);
   if (!(seed instanceof Uint8Array) || seed.length !== 6) throw new TypeError("seed must be a 6-byte Uint8Array");
 
-  const rng = createLogicRng(seed);
+  const restored = checkpoint === null ? null : normalizeCheckpoint(checkpoint, cfg, shapes);
+  const rng = createLogicRng(seed, restored?.rngState ?? null);
   const baseSpan = cfg.BaseSize * cfg.LogicScale;
-  let footprint = freezeRect({ x: 0, z: 0, width: baseSpan, depth: baseSpan });
-  let layers = Object.freeze([]);
-  let layerCount = 0;
-  let score = 0;
-  let moving = generateMoving(0);
+  let footprint = restored?.footprint ?? freezeRect({ x: 0, z: 0, width: baseSpan, depth: baseSpan });
+  let layers = restored?.layers ?? Object.freeze([]);
+  let layerCount = restored?.layerCount ?? 0;
+  let score = restored?.score ?? 0;
+  let moving = restored?.moving ?? generateMoving(0);
 
   function nextBounded(bound) {
     const ceiling = Math.floor(UINT32_RANGE / bound) * bound;
@@ -63,8 +64,9 @@ export function createStackerEngine({ seed, cfg = defaultCfg, shapes = STACKER_S
     });
   }
 
-  function drop(actionGT) {
+  function drop(actionGT, scoreEnergy = cfg.EnergyMinimum) {
     if (!Number.isFinite(actionGT) || actionGT < 0) throw new RangeError("actionGT must be nonnegative and finite");
+    if (!Number.isSafeInteger(scoreEnergy) || scoreEnergy < cfg.EnergyMinimum || scoreEnergy > cfg.EnergyMaximum) throw new RangeError("scoreEnergy is outside the Stacker energy range");
     const placed = movingAt(actionGT);
     const intersection = intersectRects(footprint, placed);
     if (!intersection) return Object.freeze({ kind: "miss", placed });
@@ -73,12 +75,15 @@ export function createStackerEngine({ seed, cfg = defaultCfg, shapes = STACKER_S
     const nextFootprint = freezeRect(intersection);
     const nextArea = BigInt(nextFootprint.width) * BigInt(nextFootprint.depth);
     const retentionBP = Number(nextArea * BigInt(cfg.RetentionBasis) / previousArea);
-    const points = Math.min(retentionBP, SCORE_MAX - score);
+    const baseScore = Math.floor(retentionBP / cfg.ScoreBasisDivisor);
+    const multipliedPoints = Number(BigInt(baseScore) * BigInt(scoreEnergy) / BigInt(cfg.EnergyMultiplierDivisor));
+    const points = Math.min(multipliedPoints, SCORE_MAX - score);
     const layer = Object.freeze({
       number: layerCount + 1,
       shapeID: placed.shapeID,
       color: placed.color,
       retentionBP,
+      baseScore,
       points,
       footprint: nextFootprint,
     });
@@ -94,7 +99,19 @@ export function createStackerEngine({ seed, cfg = defaultCfg, shapes = STACKER_S
     return Object.freeze({ footprint, layers, layerCount, score, moving });
   }
 
-  return Object.freeze({ movingAt, drop, snapshot });
+  function exportCheckpoint() {
+    return Object.freeze({
+      version: 1,
+      footprint,
+      layers,
+      layerCount,
+      score,
+      moving,
+      rngState: rng.exportState(),
+    });
+  }
+
+  return Object.freeze({ movingAt, drop, snapshot, exportCheckpoint });
 }
 
 export function calculateTraverseMS(axisLength, cfg = defaultCfg) {
@@ -104,10 +121,12 @@ export function calculateTraverseMS(axisLength, cfg = defaultCfg) {
 }
 
 export function validateStackerConfig(cfg, shapes = STACKER_SHAPES) {
-  for (const key of ["GridSize", "LogicScale", "BaseSize", "InitialTraverseMS", "MinimumTraverseMS", "LandingMS", "RetentionBasis", "PumpWaitMS", "RenderWaitMS", "LayerHeightPx"]) {
+  for (const key of ["GridSize", "LogicScale", "BaseSize", "InitialTraverseMS", "MinimumTraverseMS", "LandingMS", "RetentionBasis", "ScoreBasisDivisor", "EnergyInitial", "EnergyMinimum", "EnergyMaximum", "EnergyDecayMS", "EnergyDecayDelta", "EnergyChargeDivisor", "EnergyMultiplierDivisor", "EnergyGreenThreshold", "EnergyOrangeThreshold", "EnergyPurpleThreshold", "PumpWaitMS", "RenderWaitMS", "LayerHeightPx"]) {
     if (!Number.isSafeInteger(cfg[key]) || cfg[key] <= 0) throw new RangeError(`${key} must be a positive safe integer`);
   }
   if (cfg.MinimumTraverseMS > cfg.InitialTraverseMS) throw new RangeError("MinimumTraverseMS must not exceed InitialTraverseMS");
+  if (!(cfg.EnergyMinimum <= cfg.EnergyInitial && cfg.EnergyInitial <= cfg.EnergyMaximum)) throw new RangeError("Stacker initial energy must be within its energy range");
+  if (!(cfg.EnergyGreenThreshold < cfg.EnergyOrangeThreshold && cfg.EnergyOrangeThreshold < cfg.EnergyPurpleThreshold && cfg.EnergyPurpleThreshold <= cfg.EnergyMaximum)) throw new RangeError("Invalid Stacker energy thresholds");
   if (!Array.isArray(shapes) || shapes.length !== 10) throw new RangeError("Stacker requires ten shapes");
   const ids = new Set();
   for (const shape of shapes) {
@@ -129,4 +148,47 @@ function intersectRects(left, right) {
 
 function freezeRect(rect) {
   return Object.freeze({ x: rect.x, z: rect.z, width: rect.width, depth: rect.depth });
+}
+
+function normalizeCheckpoint(value, cfg, shapes) {
+  if (!value || typeof value !== "object" || value.version !== 1) throw new TypeError("Invalid Stacker engine checkpoint");
+  const shapeByID = new Map(shapes.map((shape) => [shape.id, shape]));
+  const footprint = normalizeRect(value.footprint);
+  if (!Array.isArray(value.layers) || !Number.isSafeInteger(value.layerCount) || value.layerCount < 0 || value.layers.length !== value.layerCount) throw new TypeError("Invalid Stacker checkpoint layers");
+  const layers = Object.freeze(value.layers.map((layer, index) => {
+    if (!layer || typeof layer !== "object" || layer.number !== index + 1 || !shapeByID.has(layer.shapeID)) throw new TypeError("Invalid Stacker checkpoint layer");
+    if (!Number.isSafeInteger(layer.retentionBP) || layer.retentionBP < 0 || layer.retentionBP > cfg.RetentionBasis) throw new TypeError("Invalid Stacker checkpoint retention");
+    const baseScore = Math.floor(layer.retentionBP / cfg.ScoreBasisDivisor);
+    if (layer.baseScore !== baseScore) throw new TypeError("Invalid Stacker checkpoint base score");
+    if (!Number.isSafeInteger(layer.points) || layer.points < 0 || layer.points > SCORE_MAX) throw new TypeError("Invalid Stacker checkpoint points");
+    return Object.freeze({
+      number: layer.number,
+      shapeID: layer.shapeID,
+      color: shapeByID.get(layer.shapeID).color,
+      retentionBP: layer.retentionBP,
+      baseScore,
+      points: layer.points,
+      footprint: normalizeRect(layer.footprint),
+    });
+  }));
+  const score = layers.reduce((sum, layer) => Math.min(SCORE_MAX, sum + layer.points), 0);
+  if (value.score !== score) throw new TypeError("Invalid Stacker checkpoint score");
+  const movingShape = value.moving && shapeByID.get(value.moving.shapeID);
+  if (!movingShape || !["x", "z"].includes(value.moving.axis) || ![-1, 1].includes(value.moving.side) || !Number.isFinite(value.moving.startGT) || value.moving.startGT < 0) throw new TypeError("Invalid Stacker checkpoint moving layer");
+  if (typeof value.rngState !== "string" || !/^[0-9a-f]{16}$/i.test(value.rngState)) throw new TypeError("Invalid Stacker checkpoint RNG state");
+  return Object.freeze({
+    footprint,
+    layers,
+    layerCount: value.layerCount,
+    score,
+    moving: Object.freeze({ shapeID: movingShape.id, color: movingShape.color, axis: value.moving.axis, side: value.moving.side, startGT: value.moving.startGT }),
+    rngState: value.rngState.toLowerCase(),
+  });
+}
+
+function normalizeRect(value) {
+  if (!value || typeof value !== "object") throw new TypeError("Invalid Stacker checkpoint rectangle");
+  const rect = { x: value.x, z: value.z, width: value.width, depth: value.depth };
+  if (![rect.x, rect.z, rect.width, rect.depth].every(Number.isSafeInteger) || rect.width <= 0 || rect.depth <= 0) throw new TypeError("Invalid Stacker checkpoint rectangle");
+  return freezeRect(rect);
 }

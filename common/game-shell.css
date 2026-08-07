@@ -13,7 +13,7 @@
   position: relative;
   display: grid;
   height: 48px;
-  grid-template-columns: minmax(58px, auto) 72px 7ch minmax(32px, 1fr) 7ch;
+  grid-template-columns: 6ch 72px 7ch minmax(32px, 1fr) 7ch;
   grid-template-rows: 30px;
   gap: 4px;
   align-items: center;
@@ -30,7 +30,7 @@
 .game-bar-charge-fill { display: block; width: calc(100% * var(--game-charge-progress)); height: 100%; border-radius: inherit; background: linear-gradient(90deg, color-mix(in srgb, var(--game-charge-color), #fff 12%), var(--game-charge-color)); box-shadow: 0 0 8px color-mix(in srgb, var(--game-charge-color), transparent 35%); transition: width 90ms linear, background-color 90ms linear; }
 .status-metric { display: grid; min-width: 0; place-items: center; color: var(--muted); text-align: center; }
 .status-metric strong { color: var(--text); font-size: 19px; font-variant-numeric: tabular-nums; line-height: 1; }
-.time-metric strong { min-width: 5ch; }
+.time-metric strong { width: 6ch; }
 .score-metric strong, .ghost-metric strong { width: 7ch; }
 .game-button {
   position: relative;

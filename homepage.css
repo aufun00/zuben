@@ -69,7 +69,7 @@
 .challenge-card:has(.challenge-open:focus-visible) { border-color: var(--accent); }
 .game-card {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 13px;
   padding: 11px;
@@ -80,15 +80,17 @@
 .game-copy strong, .game-copy h2 { display: block; overflow: hidden; margin: 0 0 4px; font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
 .game-copy strong time { color: var(--muted); font-size: 10px; font-weight: 500; }
 .game-copy small, .game-copy p { display: -webkit-box; overflow: hidden; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-.duration-buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 5px; max-width: 116px; }
-.duration-buttons button { min-width: 42px; height: 35px; padding: 0 8px; border: 1px solid color-mix(in srgb, var(--accent), transparent 67%); border-radius: 11px; background: color-mix(in srgb, var(--accent), transparent 93%); color: var(--accent); cursor: pointer; font-weight: 800; }
+.duration-buttons { display: flex; flex-wrap: nowrap; justify-content: flex-end; gap: 8px; }
+.duration-buttons button { display: grid; width: 52px; height: 52px; padding: 2px; place-items: center; border: 1px solid color-mix(in srgb, var(--accent), transparent 67%); border-radius: 13px; background: color-mix(in srgb, var(--accent), transparent 93%); color: var(--accent); cursor: pointer; }
+.duration-buttons .game-icon { width: 46px; height: 46px; }
 .duration-buttons button:hover { background: var(--accent); color: var(--accent-ink); }
 .challenge-score { display: grid; min-width: 52px; height: 38px; place-items: center; color: var(--accent); font-size: 15px; font-variant-numeric: tabular-nums; font-weight: 800; }
 .delete-button { display: grid; width: 44px; min-width: 44px; margin: 0 9px 0 2px; padding: 0; place-items: center; align-self: center; aspect-ratio: 1; border: 1px solid color-mix(in srgb, var(--danger), transparent 73%); border-radius: 13px; background: color-mix(in srgb, var(--danger), transparent 94%); color: var(--danger); cursor: pointer; }
 .delete-icon { display: block; width: 21px; height: 21px; }
 .delete-icon svg { display: block; width: 100%; height: 100%; }
 .marked-icon { position: relative; display: block; width: fit-content; }
-.marked-icon b { position: absolute; right: -3px; bottom: -2px; display: grid; place-items: center; min-width: 20px; height: 20px; padding: 0 4px; border: 2px solid var(--surface); border-radius: 10px; background: var(--accent); color: var(--accent-ink); font-size: 10px; }
+.marked-icon small { position: absolute; right: -4px; bottom: -3px; display: block; padding: 0; border: 0; background: transparent; color: var(--accent); font-size: 14px; font-weight: 700; line-height: 1; letter-spacing: -.03em; paint-order: stroke fill; -webkit-text-stroke: 3px var(--surface); }
+.marked-icon .duration-mark-unlimited { font-size: 18px; line-height: 14px; }
 .empty-state { display: grid; justify-items: center; gap: 12px; }
 .empty-state p { margin: 0; }
 
@@ -109,12 +111,12 @@
 @media (max-width: 370px) {
   .homepage { padding-inline: 10px; }
   .challenge-open { grid-template-columns: 50px minmax(0, 1fr) auto; gap: 8px; padding-left: 9px; }
-  .game-card { grid-template-columns: 54px minmax(0, 1fr) auto; gap: 8px; padding: 9px; }
+  .game-card { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 9px; }
   .game-icon { width: 50px; height: 50px; }
   .challenge-score { min-width: 42px; }
   .delete-button { width: 40px; min-width: 40px; margin-right: 7px; }
-  .duration-buttons { max-width: 92px; }
-  .duration-buttons button { min-width: 38px; }
+  .duration-buttons button { width: 44px; height: 44px; }
+  .duration-buttons .game-icon { width: 39px; height: 39px; }
   .challenge-share-backdrop { padding: 12px; }
   .challenge-share-dialog { padding: 16px; }
   .share-dialog-qr { width: min(60vw, 208px); }

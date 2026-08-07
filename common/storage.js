@@ -134,7 +134,7 @@ function normalizeChallengeEntry(value) {
   return {
     gameID: game.gameID,
     iCode: value.iCode,
-    durationMark: Math.max(1, Math.round(duration / 10)),
+    durIdx: parsed.durIdx,
     createdAt: value.createdAt,
     memo: truncateMemo(value.memo.trim()),
     bestScore: game.scoreVersion === undefined || value.scoreVersion === game.scoreVersion ? normalizeBestScore(value.bestScore) : 0,

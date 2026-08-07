@@ -1,5 +1,5 @@
 import { renderHeader, escapeHTML } from "./common/header.js";
-import { iconMarkup } from "./common/icons.js";
+import { formatDurationMark, iconMarkup, markedGameIconMarkup } from "./common/icons.js";
 import { loadChallenges, saveChallenges } from "./common/storage.js";
 import { createChallengeEntry, formatTime } from "./common/challenges.js";
 import { openChallengeShareDialog } from "./common/share-dialog.js";
@@ -102,7 +102,7 @@ function renderChallengeList(state) {
     const text = state.gameText[entry.gameID];
     card.innerHTML = `
       <button class="challenge-open" type="button">
-        <span class="marked-icon">${iconMarkup(entry.gameID, "game-icon")}<b>${entry.durationMark}</b></span>
+        ${markedGameIconMarkup(entry.gameID, game.durs[entry.durIdx])}
         <span class="game-copy"><strong>${escapeHTML(text.name)} <time>${escapeHTML(formatTime(entry.createdAt, state.language, "short"))}</time></strong><small>${escapeHTML(entry.memo)}</small></span>
         <span class="challenge-score"><span class="visually-hidden">${escapeHTML(state.strings.bestScore)}: ${entry.bestScore}</span><span aria-hidden="true">${entry.bestScore}</span></span>
       </button>
@@ -128,9 +128,8 @@ function renderGameList(state) {
     const card = document.createElement("article");
     card.className = "game-card";
     card.innerHTML = `
-      ${iconMarkup(game.gameID, "game-icon")}
       <div class="game-copy"><h2>${escapeHTML(text.name)}</h2><p>${escapeHTML(text.description)}</p></div>
-      <div class="duration-buttons">${game.durs.map((duration, durIdx) => `<button type="button" data-dur-idx="${durIdx}">${duration}</button>`).join("")}</div>
+      <div class="duration-buttons">${game.durs.map((duration, durIdx) => `<button type="button" data-dur-idx="${durIdx}" aria-label="${escapeHTML(`${text.name} ${formatDurationMark(duration)}`)}">${markedGameIconMarkup(game.gameID, duration)}</button>`).join("")}</div>
     `;
     card.querySelectorAll("[data-dur-idx]").forEach((button) => button.addEventListener("click", () => createChallenge(game, Number(button.dataset.durIdx), state)));
     list.append(card);

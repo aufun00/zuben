@@ -51,6 +51,7 @@ export const LANG = {
     failed: "出错",
     gameBarTourTitle: "GameBar 指南",
     gameBarTourDone: "知道了",
+    gameBarTourUnlimitedTime: "显示本局从开始起经过的时间；暂停时停止增长。",
     gameBarTourLabels: ["时间", "控制", "分数", "比分", "对手", "充能"],
     gameBarTourSteps: [
       "显示本局结束前还剩多少时间。",
@@ -68,6 +69,7 @@ export const LANG = {
     bestScore: "最佳成绩",
     ghost: "对手",
     time: "剩余",
+    elapsed: "计时",
     tugTied: "自己与对手平分",
     tugYouLead: "自己领先",
     tugGhostLeads: "对手领先",
@@ -130,6 +132,7 @@ export const LANG = {
     failed: "Error",
     gameBarTourTitle: "GameBar guide",
     gameBarTourDone: "Got it",
+    gameBarTourUnlimitedTime: "Shows elapsed game time and stops advancing while paused.",
     gameBarTourLabels: ["Time", "Control", "Score", "Balance", "Ghost", "Charge"],
     gameBarTourSteps: [
       "How long remains before this game ends.",
@@ -147,6 +150,7 @@ export const LANG = {
     bestScore: "Best score",
     ghost: "Ghost",
     time: "Left",
+    elapsed: "Elapsed",
     tugTied: "You and the ghost are tied",
     tugYouLead: "You are leading",
     tugGhostLeads: "The ghost is leading",

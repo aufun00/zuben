@@ -1,7 +1,7 @@
 export const DEADLINE_SETTLEMENT_MS = 400;
 
 export function createGameTime(deadlineGT) {
-  if (!Number.isFinite(deadlineGT) || deadlineGT < 0) throw new RangeError("deadlineGT must be nonnegative");
+  if (deadlineGT !== null && (!Number.isFinite(deadlineGT) || deadlineGT < 0)) throw new RangeError("deadlineGT must be null or nonnegative");
 
   let startAt = null;
   let pauseAt = null;
@@ -41,7 +41,7 @@ export function createGameTime(deadlineGT) {
       return startAt + GT;
     },
     getDeadlineBN() {
-      if (startAt === null || pauseAt !== null) return null;
+      if (deadlineGT === null || startAt === null || pauseAt !== null) return null;
       return startAt + deadlineGT;
     },
   });

@@ -1,5 +1,6 @@
 import { cfg, STACKER_SHAPES } from "./config.js";
 import { PHASE_ENDED } from "./runtime.js";
+import { createStackerSound } from "./sound.js";
 
 const SHAPES_BY_ID = new Map(STACKER_SHAPES.map((shape) => [shape.id, shape]));
 
@@ -14,6 +15,9 @@ export function createStackerRenderer({
   const staticTower = scene.querySelector("[data-static-tower]");
   const footprintLayer = scene.querySelector("[data-footprint]");
   const movingLayer = scene.querySelector("[data-moving]");
+  const gamePage = gameZone.closest(".game-page");
+  const soundSurface = gamePage?.querySelector(".game-button") ?? gamePage ?? gameZone;
+  const sound = createStackerSound({ surface: soundSurface });
   let renderedLayers = 0;
   let footprintKey = "";
   let movingKey = "";
@@ -22,6 +26,7 @@ export function createStackerRenderer({
   let visible = !document.hidden;
   let destroyed = false;
 
+  staticTower.replaceChildren();
   staticTower.insertAdjacentHTML("beforeend", renderBase());
 
   function render() {
@@ -34,7 +39,7 @@ export function createStackerRenderer({
       return;
     }
     const snapshot = runtime.snapshot();
-    if (snapshot) paint(snapshot);
+    if (snapshot) { sound.sync(snapshot); paint(snapshot); }
     performanceMeter.recordFrame(readBN());
     schedule();
   }
@@ -87,6 +92,7 @@ export function createStackerRenderer({
   return Object.freeze({
     setVisible(nextVisible) {
       visible = Boolean(nextVisible);
+      sound.setVisible(visible);
       if (!visible && timer !== null) { clearTimeout(timer); timer = null; }
       else if (visible) render();
     },
@@ -95,6 +101,7 @@ export function createStackerRenderer({
       destroyed = true;
       if (timer !== null) clearTimeout(timer);
       timer = null;
+      sound.destroy();
     },
   });
 }

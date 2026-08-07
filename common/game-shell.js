@@ -48,14 +48,18 @@ export function renderGameShell(mount, { game, gameIdx, params, version, gameStr
   }
 
   const duration = game.durs[parsed.durIdx];
+  const unlimited = duration > 9_000;
+  const durationMs = unlimited ? null : duration * 1_000;
   const emitBeacon = (event) => emitEventSignal({ gameID: game.gameID, timeS: duration, event });
   const ghostScore = readResultScore(params, game.gameID, parsed.code, game.scoreVersion);
   const page = document.createElement("main");
   page.className = "game-page game-page-fixed-ui";
+  page.dataset.unlimited = String(unlimited);
+  const timeLabel = unlimited ? strings.elapsed : strings.time;
   page.innerHTML = `
     <section class="game-bar" aria-label="${strings.gameStatus}">
-      <div class="status-metric time-metric" title="${strings.time}">
-        <span class="visually-hidden">${strings.time}</span><strong data-time>${formatRemaining(duration * 1000)}</strong>
+      <div class="status-metric time-metric" title="${timeLabel}">
+        <span class="visually-hidden">${timeLabel}</span><strong data-time>${unlimited ? formatElapsed(0) : formatRemaining(durationMs)}</strong>
       </div>
       <button class="game-button" type="button" data-control-state="play" aria-label="${strings.start}" title="${strings.start}"><span class="crystal-button-label">${strings.start}</span></button>
       <div class="status-metric score-metric" title="${strings.score}">
@@ -81,8 +85,8 @@ export function renderGameShell(mount, { game, gameIdx, params, version, gameStr
   page.querySelector(".game-button").addEventListener("click", () => {
     if (page.querySelector("[data-game-zone]")?.dataset.phase === PHASE_ENDED) location.reload();
   });
-  updateTugBar(page, 0, ghostScore, strings, 0, duration * 1000);
-  tourBinding = createGameBarTour(page, strings);
+  updateTugBar(page, 0, ghostScore, strings, 0, durationMs ?? 0);
+  tourBinding = createGameBarTour(page, strings, { unlimited });
   if (setupGame) {
     const performanceMeter = createPerformanceMeter(headerBinding.performanceMeterHost, performanceMeterCfg);
     let startBeaconSent = false;
@@ -102,7 +106,8 @@ export function renderGameShell(mount, { game, gameIdx, params, version, gameStr
       parsed,
       game,
       gameIdx,
-      durationMs: duration * 1000,
+      durationMs,
+      unlimited,
       ghostScore,
       strings,
       localized,
@@ -115,7 +120,7 @@ export function renderGameShell(mount, { game, gameIdx, params, version, gameStr
       languageBinding = (nextLanguage) => {
         const nextStrings = LANG[nextLanguage] ?? LANG.en;
         const nextLocalized = gameStrings[nextLanguage] ?? gameStrings.en;
-        updateGameChromeLanguage(page, nextStrings);
+        updateGameChromeLanguage(page, nextStrings, unlimited);
         tourBinding?.setLanguage(nextStrings);
         const gameZone = page.querySelector("[data-game-zone]");
         if (gameZone?.dataset.phase === "PHASE_ERROR") renderControllerFailure(page, nextStrings, gameZone.dataset.errorCode);
@@ -311,8 +316,16 @@ function setControlButton(button, state, label) {
 }
 
 export function formatRemaining(milliseconds) {
-  const tenths = milliseconds <= 0 ? 0 : Math.ceil(milliseconds / 100);
+  const tenths = Math.min(9_999, milliseconds <= 0 ? 0 : Math.ceil(milliseconds / 100));
   return `${(tenths / 10).toFixed(1)}s`;
+}
+
+export function formatElapsed(milliseconds) {
+  const totalSeconds = milliseconds <= 0 ? 0 : Math.floor(milliseconds / 1_000);
+  if (totalSeconds > 999 * 60 + 59) return "999:99";
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(3, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
 export function updateTugBar(page, ownScore, ghostScore, strings, elapsedMs = 0, limitMs = 0) {
@@ -407,10 +420,10 @@ export function renderControllerFailure(page, strings, errorCode) {
   gameZone.replaceChildren(panel);
 }
 
-export function updateGameChromeLanguage(page, strings) {
+export function updateGameChromeLanguage(page, strings, unlimited = page.dataset.unlimited === "true") {
   const gameBar = page.querySelector(".game-bar");
   gameBar.setAttribute("aria-label", strings.gameStatus);
-  for (const [selector, label] of [[".time-metric", strings.time], [".score-metric", strings.score], [".ghost-metric", strings.ghost]]) {
+  for (const [selector, label] of [[".time-metric", unlimited ? strings.elapsed : strings.time], [".score-metric", strings.score], [".ghost-metric", strings.ghost]]) {
     const metric = page.querySelector(selector);
     metric.title = label;
     metric.querySelector(".visually-hidden").textContent = label;

@@ -26,3 +26,15 @@ export function iconMarkup(iconID, className = "") {
   const svg = ICONS[iconID] ?? ICONS.logo;
   return `<span class="${className}" data-icon="${iconID}">${svg}</span>`;
 }
+
+export function formatDurationMark(durationSeconds) {
+  if (!Number.isSafeInteger(durationSeconds) || durationSeconds <= 0) throw new RangeError("durationSeconds must be a positive safe integer");
+  if (durationSeconds > 9_000) return "∞";
+  if (durationSeconds < 100) return `${durationSeconds}s`;
+  return `${Math.floor(durationSeconds / 60)}m`;
+}
+
+export function markedGameIconMarkup(gameID, durationSeconds, iconClassName = "game-icon") {
+  const unlimitedClass = durationSeconds > 9_000 ? ` class="duration-mark-unlimited"` : "";
+  return `<span class="marked-icon">${iconMarkup(gameID, iconClassName)}<small${unlimitedClass}>${formatDurationMark(durationSeconds)}</small></span>`;
+}

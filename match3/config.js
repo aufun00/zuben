@@ -30,7 +30,7 @@ export const cfg = Object.freeze({
   FallMS: 240,
 
   EnergyInitial: 50,
-  EnergyPerCell: 5,
+  EnergyPerCell: 1,
   EnergyDecayMS: 100,
   EnergyDecayDelta: 1,
   EnergyGreenThreshold: 100,
