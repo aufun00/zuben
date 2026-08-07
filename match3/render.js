@@ -3,20 +3,29 @@ import { OPERATION_RESOLVE, OPERATION_SWAP, OPERATION_SWAP_BACK, PHASE_RUNNING }
 
 const PIECE_URLS = TILE_CATALOG.map((_, index) => new URL(`./piece-${index + 1}O.svg`, import.meta.url).href);
 const MOVE_EASING = "cubic-bezier(.33,1,.68,1)";
+const RASTER_MARGIN = 1.25;
+const RASTER_SIZES = Object.freeze([64, 128, 256, 512]);
 
 export function createMatch3Renderer({ gameZone, runtime, performanceMeter, readBN = () => performance.now() }) {
   const board = gameZone.querySelector("[data-match3-board]");
   const tiles = Array.from({ length: cfg.BoardSize ** 2 }, (_, index) => {
     const node = document.createElement("button");
     const pieceLayers = TILE_CATALOG.map((_, type) =>
-      `<image data-piece-layer="${type}" href="${PIECE_URLS[type]}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" style="display:none"></image>`).join("");
+      `<span class="match3-piece-layer" data-piece-layer="${type}" style="display:none;background-position:${type % 3 * 50}% ${Math.floor(type / 3) * 100}%"></span>`).join("");
     node.type = "button"; node.className = "match3-tile"; node.dataset.index = String(index); node.tabIndex = -1;
-    node.innerHTML = `<span class="match3-crystal" aria-hidden="true"><svg viewBox="0 0 1 1" preserveAspectRatio="xMidYMid meet">${pieceLayers}</svg></span><span class="match3-mystery" aria-hidden="true">?</span>`;
+    node.innerHTML = `<span class="match3-crystal" aria-hidden="true">${pieceLayers}</span><span class="match3-mystery" aria-hidden="true">?</span>`;
     board.append(node);
     return Object.freeze({ node, pieceLayers: [...node.querySelectorAll("[data-piece-layer]")], mystery: node.querySelector(".match3-mystery") });
   });
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
-  let timer = null, visible = !document.hidden, destroyed = false, selected = null, lastAppearance = "", activeMotion = null, animations = [];
+  let timer = null, visible = !document.hidden, destroyed = false, selected = null, lastAppearance = "", activeMotion = null, animations = [], atlasUrl = null;
+  const ready = createPieceAtlas(board).then(({ url, size }) => {
+    if (destroyed) { URL.revokeObjectURL(url); return; }
+    atlasUrl = url;
+    board.style.setProperty("--match3-piece-atlas", `url("${url}")`);
+    board.dataset.rasterSize = String(size);
+    board.dataset.rasterReady = "true";
+  });
 
   function render() {
     timer = null; if (destroyed || !visible) return;
@@ -104,10 +113,40 @@ export function createMatch3Renderer({ gameZone, runtime, performanceMeter, read
   function schedule(delay = cfg.RenderWaitMS) { if (!destroyed && visible && timer === null) timer = setTimeout(render, delay); }
   render();
   return Object.freeze({
+    ready,
     setSelected(index) { selected = index; lastAppearance = ""; },
     setVisible(value) { visible = Boolean(value); if (!visible && timer !== null) { clearTimeout(timer); timer = null; } else if (visible) render(); },
-    destroy() { destroyed = true; if (timer !== null) clearTimeout(timer); timer = null; clearMotion(); },
+    destroy() { destroyed = true; if (timer !== null) clearTimeout(timer); timer = null; clearMotion(); if (atlasUrl !== null) URL.revokeObjectURL(atlasUrl); atlasUrl = null; },
   });
 }
 
 function ratio(value, start, end) { return Math.min(1, Math.max(0, (value - start) / (end - start || 1))); }
+
+async function createPieceAtlas(board) {
+  const tileWidth = board.querySelector(".match3-tile")?.getBoundingClientRect().width || board.getBoundingClientRect().width / cfg.BoardSize;
+  const requiredSize = Math.ceil(tileWidth * Math.max(1, devicePixelRatio || 1) * RASTER_MARGIN);
+  const size = RASTER_SIZES.find((candidate) => candidate >= requiredSize) ?? RASTER_SIZES.at(-1);
+  const images = await Promise.all(PIECE_URLS.map(loadPieceImage));
+  const canvas = document.createElement("canvas");
+  canvas.width = size * 3; canvas.height = size * 2;
+  const context = canvas.getContext("2d", { alpha: true });
+  if (!context) throw new Error("Match3 raster canvas is unavailable");
+  for (let index = 0; index < images.length; index += 1) {
+    const image = images[index], ratio = image.naturalWidth / image.naturalHeight;
+    const width = ratio >= 1 ? size : size * ratio, height = ratio >= 1 ? size / ratio : size;
+    const x = index % 3 * size + (size - width) / 2, y = Math.floor(index / 3) * size + (size - height) / 2;
+    context.drawImage(image, x, y, width, height);
+  }
+  const blob = await new Promise((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error("Match3 raster encoding failed")), "image/png"));
+  return Object.freeze({ url: URL.createObjectURL(blob), size });
+}
+
+function loadPieceImage(url) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.decoding = "async";
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error(`Could not rasterize Match3 piece: ${url}`));
+    image.src = url;
+  });
+}
