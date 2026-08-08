@@ -1,5 +1,5 @@
 const STORAGE_KEY = "zuben.snake.unlimitedCheckpoint";
-const RECORD_VERSION = 2;
+const RECORD_VERSION = 3;
 
 export function loadSnakeCheckpoint(iCode) {
   try {

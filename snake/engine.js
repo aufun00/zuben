@@ -36,15 +36,15 @@ const UINT32_RANGE = 0x1_0000_0000;
 
 export function validateSnakeConfig(value) {
   const positive = [
-    "BoardSize", "InitialLength", "RewardCount", "EdgeBandWidth", "RewardLifetimeMS", "RewardBlinkMS",
+    "BoardColumns", "BoardRows", "InitialLength", "RewardCount", "EdgeBandWidth", "RewardLifetimeMS", "RewardBlinkMS",
     "PrepareMS", "SwipeThresholdPx", "InitialStepMS", "SpeedTierMS", "SpeedStepMS", "MinimumStepMS",
     "EnergyInitial", "EnergyMinimum", "EnergyMaximum", "EnergyPerUnit", "EnergyDecayMS", "EnergyDecayDelta",
     "EnergyGreenThreshold", "EnergyOrangeThreshold", "EnergyPurpleThreshold", "CellScoreBase", "CellEnergyCharge", "ScoreEnergyDivisor",
     "PumpWaitMS", "RenderWaitMS",
   ];
   for (const key of positive) if (!Number.isSafeInteger(value?.[key]) || value[key] <= 0) throw new RangeError(`Invalid Snake config: ${key}`);
-  if (value.BoardSize < 8 || value.InitialLength >= value.BoardSize - 2) throw new RangeError("Snake board or initial length is invalid");
-  if (value.EdgeBandWidth * 2 >= value.BoardSize) throw new RangeError("Snake edge band leaves no center");
+  if (value.BoardColumns < 8 || value.BoardRows < 8 || value.InitialLength >= value.BoardColumns - 2) throw new RangeError("Snake board or initial length is invalid");
+  if (value.EdgeBandWidth * 2 >= Math.min(value.BoardColumns, value.BoardRows)) throw new RangeError("Snake edge band leaves no center");
   if (value.RewardBlinkMS >= value.RewardLifetimeMS) throw new RangeError("Snake blink duration must be shorter than lifetime");
   if (value.MinimumStepMS > value.InitialStepMS) throw new RangeError("Snake minimum step cannot exceed initial step");
   if (!(value.EnergyMinimum <= value.EnergyInitial && value.EnergyInitial <= value.EnergyMaximum)) throw new RangeError("Snake initial energy is outside its range");
@@ -52,11 +52,11 @@ export function validateSnakeConfig(value) {
   return true;
 }
 
-export function createInitialSnake(size, length) {
-  if (!Number.isSafeInteger(size) || !Number.isSafeInteger(length) || size < 3 || length < 2 || length >= size) throw new RangeError("Invalid initial snake dimensions");
-  const row = Math.floor(size / 2);
-  const headColumn = Math.floor(size / 2) + 1;
-  return Object.freeze(Array.from({ length }, (_, offset) => row * size + headColumn - offset));
+export function createInitialSnake(columns, rows, length) {
+  if (!Number.isSafeInteger(columns) || !Number.isSafeInteger(rows) || !Number.isSafeInteger(length) || columns < 3 || rows < 3 || length < 2 || length >= columns) throw new RangeError("Invalid initial snake dimensions");
+  const row = Math.floor(rows / 2);
+  const headColumn = Math.floor(columns / 2) + 1;
+  return Object.freeze(Array.from({ length }, (_, offset) => row * columns + headColumn - offset));
 }
 
 export function getStepMS(atGT, value) {
@@ -73,12 +73,12 @@ export function dominantDirection(dx, dy) {
 export function isDirection(value) { return Object.hasOwn(DIRECTIONS, value); }
 export function isOpposite(left, right) { return OPPOSITE[left] === right; }
 
-export function nextCell(index, direction, size) {
-  if (!Number.isSafeInteger(index) || index < 0 || index >= size ** 2 || !isDirection(direction)) throw new RangeError("Invalid Snake movement");
-  const row = Math.floor(index / size) + DIRECTIONS[direction].row;
-  const col = index % size + DIRECTIONS[direction].col;
-  if (row < 0 || row >= size || col < 0 || col >= size) return -1;
-  return row * size + col;
+export function nextCell(index, direction, columns, rows) {
+  if (!Number.isSafeInteger(index) || index < 0 || index >= columns * rows || !isDirection(direction)) throw new RangeError("Invalid Snake movement");
+  const row = Math.floor(index / columns) + DIRECTIONS[direction].row;
+  const col = index % columns + DIRECTIONS[direction].col;
+  if (row < 0 || row >= rows || col < 0 || col >= columns) return -1;
+  return row * columns + col;
 }
 
 export function drawRewardType(rng) { return WEIGHTED_TYPES[nextBounded(rng, WEIGHTED_TYPES.length)]; }
@@ -98,14 +98,14 @@ export function createReward({ type, index, bornGT, serial, lifetimeMS }) {
   return Object.freeze({ id: serial, type, index, bornGT, expiresGT: bornGT + lifetimeMS, variant: serial % variants });
 }
 
-export function chooseRewardCell({ type, size, edgeWidth, occupied, rng }) {
+export function chooseRewardCell({ type, columns, rows, edgeWidth, occupied, rng }) {
   const preferred = [];
   const fallback = [];
-  for (let index = 0; index < size ** 2; index += 1) {
+  for (let index = 0; index < columns * rows; index += 1) {
     if (occupied.has(index)) continue;
     fallback.push(index);
-    const row = Math.floor(index / size), col = index % size;
-    const edge = row < edgeWidth || row >= size - edgeWidth || col < edgeWidth || col >= size - edgeWidth;
+    const row = Math.floor(index / columns), col = index % columns;
+    const edge = row < edgeWidth || row >= rows - edgeWidth || col < edgeWidth || col >= columns - edgeWidth;
     if ((type === REWARD_COIN) === edge) preferred.push(index);
   }
   const candidates = preferred.length > 0 ? preferred : fallback;
@@ -120,16 +120,16 @@ export function nextBounded(rng, bound) {
   return value % bound;
 }
 
-export function validateSnakeState({ snake, segmentKinds, rewards, size }) {
+export function validateSnakeState({ snake, segmentKinds, rewards, columns, rows }) {
   if (!Array.isArray(snake) || snake.length < 2 || !Array.isArray(segmentKinds) || segmentKinds.length !== snake.length) throw new TypeError("Invalid Snake body");
   const occupied = new Set();
   for (const index of snake) {
-    if (!Number.isSafeInteger(index) || index < 0 || index >= size ** 2 || occupied.has(index)) throw new TypeError("Invalid Snake body cell");
+    if (!Number.isSafeInteger(index) || index < 0 || index >= columns * rows || occupied.has(index)) throw new TypeError("Invalid Snake body cell");
     occupied.add(index);
   }
   if (segmentKinds.some((kind) => kind !== "snake" && kind !== "ant")) throw new TypeError("Invalid Snake segment kind");
   for (const reward of rewards) {
-    if (!reward || !REWARD_TYPES.includes(reward.type) || !Number.isSafeInteger(reward.index) || reward.index < 0 || reward.index >= size ** 2 || occupied.has(reward.index) || occupied.has(`reward:${reward.index}`)) throw new TypeError("Invalid Snake reward state");
+    if (!reward || !REWARD_TYPES.includes(reward.type) || !Number.isSafeInteger(reward.index) || reward.index < 0 || reward.index >= columns * rows || occupied.has(reward.index) || occupied.has(`reward:${reward.index}`)) throw new TypeError("Invalid Snake reward state");
     occupied.add(`reward:${reward.index}`);
   }
   return true;

@@ -67,7 +67,7 @@ export function createSnakeRuntime({
   const rng = createLogicRng(seed, restored?.rngState ?? null);
 
   let phase = PHASE_INIT;
-  let snake = restored?.snake ?? createInitialSnake(cfg.BoardSize, cfg.InitialLength);
+  let snake = restored?.snake ?? createInitialSnake(cfg.BoardColumns, cfg.BoardRows, cfg.InitialLength);
   let segmentKinds = restored?.segmentKinds ?? Object.freeze(Array(snake.length).fill("snake"));
   let direction = restored?.direction ?? "east";
   let stepStartGT = restored?.stepStartGT ?? 0;
@@ -234,7 +234,7 @@ export function createSnakeRuntime({
     settleEnergy(stepGT);
     const scoringEnergy = energy;
     const appliedDirection = nextDirection ?? direction;
-    const head = nextCell(snake[0], appliedDirection, cfg.BoardSize);
+    const head = nextCell(snake[0], appliedDirection, cfg.BoardColumns, cfg.BoardRows);
     if (head < 0) { die("WALL", stepGT); return; }
 
     const tailWillMove = growthKinds.length === 0;
@@ -315,7 +315,7 @@ export function createSnakeRuntime({
     while (rewards.length < cfg.RewardCount) {
       const type = drawRewardType(rng);
       const occupied = new Set([...snake, ...rewards.map((reward) => reward.index)]);
-      const index = chooseRewardCell({ type, size: cfg.BoardSize, edgeWidth: cfg.EdgeBandWidth, occupied, rng });
+      const index = chooseRewardCell({ type, columns: cfg.BoardColumns, rows: cfg.BoardRows, edgeWidth: cfg.EdgeBandWidth, occupied, rng });
       if (index < 0) return false;
       const reward = createReward({ type, index, bornGT: atGT, serial: nextRewardSerial++, lifetimeMS: cfg.RewardLifetimeMS });
       rewards = Object.freeze([...rewards, reward]);
@@ -452,7 +452,7 @@ export function createSnakeRuntime({
 
   function freezeCheckpoint(runGT) {
     return Object.freeze({
-      version: 2,
+      version: 3,
       runGT,
       snake,
       segmentKinds,
@@ -529,11 +529,11 @@ export function createSnakeRuntime({
 }
 
 function normalizeCheckpoint(value, cfg) {
-  if (!value || typeof value !== "object" || value.version !== 2 || !Number.isFinite(value.runGT) || value.runGT < 0) throw new TypeError("Invalid Snake checkpoint");
+  if (!value || typeof value !== "object" || value.version !== 3 || !Number.isFinite(value.runGT) || value.runGT < 0) throw new TypeError("Invalid Snake checkpoint");
   const snake = Object.freeze(Array.isArray(value.snake) ? [...value.snake] : []);
   const segmentKinds = Object.freeze(Array.isArray(value.segmentKinds) ? [...value.segmentKinds] : []);
   const rewards = Object.freeze(Array.isArray(value.rewards) ? value.rewards.map((reward) => Object.freeze({ ...reward })) : []);
-  validateSnakeState({ snake, segmentKinds, rewards, size: cfg.BoardSize });
+  validateSnakeState({ snake, segmentKinds, rewards, columns: cfg.BoardColumns, rows: cfg.BoardRows });
   if (!isDirection(value.direction) || value.nextDirection !== null && !isDirection(value.nextDirection) || value.followingDirection !== null && !isDirection(value.followingDirection) || !Array.isArray(value.growthKinds) || value.growthKinds.some((kind) => kind !== "snake" && kind !== "ant")) throw new TypeError("Invalid Snake checkpoint direction or growth");
   for (const reward of rewards) {
     if (!Number.isSafeInteger(reward.id) || reward.id < 0 || !Number.isFinite(reward.bornGT) || reward.bornGT < 0 || !Number.isFinite(reward.expiresGT) || reward.expiresGT <= reward.bornGT || !Number.isSafeInteger(reward.variant) || reward.variant < 0) throw new TypeError("Invalid Snake checkpoint reward");

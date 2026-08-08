@@ -1,5 +1,6 @@
 export const cfg = Object.freeze({
-  BoardSize: 18,
+  BoardColumns: 15,
+  BoardRows: 22,
   InitialLength: 4,
   RewardCount: 3,
   EdgeBandWidth: 2,
@@ -8,10 +9,10 @@ export const cfg = Object.freeze({
 
   PrepareMS: 3_000,
   SwipeThresholdPx: 28,
-  InitialStepMS: 160,
+  InitialStepMS: 500,
   SpeedTierMS: 30_000,
-  SpeedStepMS: 4,
-  MinimumStepMS: 112,
+  SpeedStepMS: 50,
+  MinimumStepMS: 50,
 
   EnergyInitial: 50,
   EnergyMinimum: 50,

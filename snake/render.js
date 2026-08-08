@@ -16,7 +16,7 @@ export function createSnakeRenderer({ gameZone, runtime, performanceMeter, readB
   const board = gameZone.querySelector("[data-snake-board]");
   const cellsLayer = gameZone.querySelector("[data-snake-cells]");
   const feedbackLayer = gameZone.querySelector("[data-snake-feedback]");
-  const cells = createCells(cellsLayer, cfg.BoardSize ** 2);
+  const cells = createCells(cellsLayer, cfg.BoardColumns * cfg.BoardRows);
   const feedbackNodes = createFeedbackNodes(feedbackLayer, 6);
   const gamePage = gameZone.closest(".game-page");
   const sound = createSnakeSound({ surface: gamePage?.querySelector(".game-button") ?? gamePage ?? gameZone });
@@ -27,7 +27,8 @@ export function createSnakeRenderer({ gameZone, runtime, performanceMeter, readB
   let lastFeedbackIDs = "";
   let renderedBoardKey = "";
 
-  board.style.setProperty("--snake-size", String(cfg.BoardSize));
+  board.style.setProperty("--snake-columns", String(cfg.BoardColumns));
+  board.style.setProperty("--snake-rows", String(cfg.BoardRows));
   void createAtlas(board).then((url) => {
     if (destroyed) { URL.revokeObjectURL(url); return; }
     atlasURL = url;
@@ -81,7 +82,7 @@ export function createSnakeRenderer({ gameZone, runtime, performanceMeter, readB
       sprite.hidden = false;
       const phase = moving ? (walkTick + segmentIndex) % WALK_SEQUENCE.length : 0;
       setFrame(sprite, WALK_SEQUENCE[phase]);
-      cell.style.setProperty("--sprite-rotate", `${segmentRotation(snapshot.snake, segmentIndex, snapshot.direction, cfg.BoardSize)}deg`);
+      cell.style.setProperty("--sprite-rotate", `${segmentRotation(snapshot.snake, segmentIndex, snapshot.direction, cfg.BoardColumns)}deg`);
     });
   }
 
@@ -94,12 +95,12 @@ export function createSnakeRenderer({ gameZone, runtime, performanceMeter, readB
       const item = active[index];
       if (!item || !item.text) { node.hidden = true; return; }
       const elapsed = snapshot.runGT - item.atGT;
-      const row = Math.floor(item.index / cfg.BoardSize), col = item.index % cfg.BoardSize;
+      const row = Math.floor(item.index / cfg.BoardColumns), col = item.index % cfg.BoardColumns;
       node.hidden = false;
       node.textContent = item.text;
       node.dataset.kind = item.resolvedType;
-      node.style.left = `${(col + 0.5) * 100 / cfg.BoardSize}%`;
-      node.style.top = `${(row + 0.5) * 100 / cfg.BoardSize}%`;
+      node.style.left = `${(col + 0.5) * 100 / cfg.BoardColumns}%`;
+      node.style.top = `${(row + 0.5) * 100 / cfg.BoardRows}%`;
       node.style.opacity = String(Math.max(0, 1 - elapsed / 700));
       node.style.transform = `translate(-50%, calc(-50% - ${elapsed * 0.035}px)) scale(${1 + Math.min(0.18, elapsed / 900)})`;
     });
@@ -168,14 +169,13 @@ function setFrame(node, frame) {
   node.style.backgroundPosition = `${col * 100 / (ATLAS_COLUMNS - 1)}% ${row * 100 / (ATLAS_ROWS - 1)}%`;
 }
 
-function segmentRotation(snake, index, direction, size) {
+export function segmentRotation(snake, index, direction, columns) {
   if (index === 0) return directionAngle(direction);
   const ahead = snake[index - 1], current = snake[index];
-  const delta = ahead - current;
-  if (delta === 1) return 90;
-  if (delta === -1) return -90;
-  if (delta === size) return 180;
-  return 0;
+  const behind = index + 1 < snake.length ? snake[index + 1] : current;
+  const deltaRow = Math.floor(ahead / columns) - Math.floor(behind / columns);
+  const deltaCol = ahead % columns - behind % columns;
+  return Math.atan2(deltaCol, -deltaRow) * 180 / Math.PI;
 }
 
 function directionAngle(direction) {
@@ -183,7 +183,7 @@ function directionAngle(direction) {
 }
 
 async function createAtlas(board) {
-  const width = Math.max(16, board.getBoundingClientRect().width / cfg.BoardSize);
+  const width = Math.max(16, board.getBoundingClientRect().width / cfg.BoardColumns);
   const size = Math.min(128, nextPowerOfTwo(Math.ceil(width * Math.min(devicePixelRatio || 1, 3))));
   const canvas = document.createElement("canvas");
   canvas.width = size * ATLAS_COLUMNS;
