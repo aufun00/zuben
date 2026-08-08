@@ -4,6 +4,7 @@ export const GAME_LIST = Object.freeze([
   Object.freeze({ gameID: "runner", durs: Object.freeze([30, 60]) }),
   Object.freeze({ gameID: "2048", durs: Object.freeze([60, 9_999]) }),
   Object.freeze({ gameID: "linefit", durs: Object.freeze([60, 9_999]) }),
+  Object.freeze({ gameID: "snake", durs: Object.freeze([60, 9_999]) }),
 ]);
 
 export function findGame(gameIdx) {

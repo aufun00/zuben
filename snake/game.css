@@ -1,0 +1,45 @@
+.snake-zone {
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 15%, color-mix(in srgb, #68d99a 18%, transparent), transparent 42%), var(--bg);
+}
+.snake-playfield {
+  position: absolute; inset: 0; display: grid; align-content: center; justify-items: center; gap: 12px;
+  padding: max(14px, env(safe-area-inset-top)) 10px max(14px, env(safe-area-inset-bottom));
+  overflow: hidden; border-radius: inherit; touch-action: none;
+}
+.snake-playfield:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: -5px; }
+.snake-hud { display:flex; width:min(94%,410px); justify-content:space-between; gap:8px; color:var(--muted); font-size:12px; font-weight:800; text-transform:uppercase; }
+.snake-hud span { display:inline-flex; align-items:baseline; gap:6px; padding:6px 9px; border:1px solid var(--border); border-radius:10px; background:color-mix(in srgb,var(--panel) 86%,transparent); }
+.snake-hud strong { color:var(--text); font-size:16px; font-variant-numeric:tabular-nums; }
+.snake-board {
+  --snake-size:18; position:relative; width:min(94%,410px,calc(var(--game-ui-height) - 145px)); aspect-ratio:1;
+  overflow:hidden; border:5px solid #52695d; border-radius:14px;
+  background:linear-gradient(145deg,#dce9df,#b8cdbd); box-shadow:inset 0 0 24px #26453340,0 16px 40px #0005;
+}
+.snake-cells { position:absolute; inset:0; display:grid; grid-template-columns:repeat(var(--snake-size),1fr); grid-template-rows:repeat(var(--snake-size),1fr); }
+.snake-cell { position:relative; min-width:0; min-height:0; border-right:1px solid #46635119; border-bottom:1px solid #46635119; }
+.snake-cell.is-snake { z-index:2; }
+.snake-cell.is-head { z-index:3; }
+.snake-sprite { position:absolute; inset:-8%; background-image:var(--snake-atlas); background-repeat:no-repeat; background-size:400% 300%; transform:rotate(var(--sprite-rotate,0deg)); filter:drop-shadow(0 2px 2px #0008); }
+.snake-cell.is-head .snake-sprite { filter:drop-shadow(0 0 3px #fff) drop-shadow(0 2px 2px #0009); transform:rotate(var(--sprite-rotate,0deg)) scale(1.09); }
+.snake-cell.is-reward .snake-sprite { inset:-15%; filter:drop-shadow(0 2px 2px #0007); }
+.snake-cell[data-kind="coin"] .snake-sprite { inset:-22%; filter:drop-shadow(0 0 4px #ffe772) drop-shadow(0 2px 2px #0008); }
+.snake-cell[data-kind="mystery"] .snake-sprite { inset:-18%; }
+.snake-cell.is-blinking .snake-sprite { opacity:.25; }
+.snake-feedback { position:absolute; z-index:5; inset:0; pointer-events:none; }
+.snake-float { position:absolute; color:#fff; font-size:20px; font-weight:900; line-height:1; text-shadow:0 2px 2px #000,0 0 6px #000; will-change:transform,opacity; }
+.snake-float[data-kind="coin"] { color:#ffe66f; }
+.snake-float[data-kind="predation"] { color:#ff9a8f; }
+.snake-cover { position:absolute; z-index:6; inset:0; display:grid; padding:18px; place-items:center; border-radius:inherit; background:var(--bg); }
+.snake-cover[hidden], .snake-overlay[hidden], .snake-sprite[hidden], .snake-float[hidden] { display:none; }
+.snake-rules { width:min(100%,470px); margin:0; box-shadow:0 18px 60px #0008; }
+.snake-rules h1 { margin:0 0 12px; color:var(--accent); font-size:22px; }
+.snake-rules > p { margin:0; color:var(--text); }
+.snake-rules ol { display:grid; gap:8px; margin:16px 0 0; padding-left:22px; color:var(--muted); text-align:left; line-height:1.45; }
+.snake-overlay { position:absolute; z-index:8; inset:0; overflow:auto; border-radius:inherit; background:var(--game-overlay-bg); }
+.snake-checkpoint-dialog p { margin:0; color:var(--muted); line-height:1.5; }
+.snake-zone > .countdown { z-index:7; }
+@container (max-width:380px) { .snake-playfield{gap:8px;padding:10px 7px}.snake-board{width:min(96%,calc(var(--game-ui-height) - 145px))}.snake-cover{padding:10px} }
+@media (prefers-reduced-motion:reduce) { .snake-float{will-change:auto}.snake-sprite{filter:none} }

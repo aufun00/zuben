@@ -1,0 +1,43 @@
+export const cfg = Object.freeze({
+  BoardSize: 18,
+  InitialLength: 4,
+  RewardCount: 3,
+  EdgeBandWidth: 2,
+  RewardLifetimeMS: 10_000,
+  RewardBlinkMS: 3_000,
+
+  PrepareMS: 3_000,
+  SwipeThresholdPx: 28,
+  InitialStepMS: 160,
+  SpeedTierMS: 30_000,
+  SpeedStepMS: 4,
+  MinimumStepMS: 112,
+
+  EnergyInitial: 50,
+  EnergyMinimum: 50,
+  EnergyMaximum: 400,
+  EnergyPerUnit: 10,
+  EnergyDecayMS: 100,
+  EnergyDecayDelta: 1,
+  EnergyGreenThreshold: 100,
+  EnergyOrangeThreshold: 200,
+  EnergyPurpleThreshold: 400,
+  ScoreEnergyDivisor: 50,
+
+  PumpWaitMS: 10,
+  RenderWaitMS: 32,
+  PerformanceWindowMS: 2_000,
+  TPSGreenMin: 80,
+  TPSOrangeMin: 50,
+  FPSGreenMin: 25,
+  FPSOrangeMin: 16,
+});
+
+export const SNAKE_PERFORMANCE_CFG = Object.freeze({
+  windowMs: cfg.PerformanceWindowMS,
+  refreshMs: 500,
+  manualFrames: true,
+  roundNearest: true,
+  tps: Object.freeze({ warningBelow: cfg.TPSGreenMin, criticalBelow: cfg.TPSOrangeMin }),
+  fps: Object.freeze({ warningBelow: cfg.FPSGreenMin, criticalBelow: cfg.FPSOrangeMin }),
+});
