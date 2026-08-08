@@ -89,8 +89,8 @@
 .delete-icon { display: block; width: 21px; height: 21px; }
 .delete-icon svg { display: block; width: 100%; height: 100%; }
 .marked-icon { position: relative; display: block; width: fit-content; }
-.marked-icon small { position: absolute; right: -4px; bottom: -3px; display: block; padding: 0; border: 0; background: transparent; color: var(--accent); font-size: 14px; font-weight: 700; line-height: 1; letter-spacing: -.03em; paint-order: stroke fill; -webkit-text-stroke: 3px var(--surface); }
-.marked-icon .duration-mark-unlimited { font-size: 18px; line-height: 14px; }
+.marked-icon small { position: absolute; right: -4px; bottom: -3px; display: block; padding: 0; border: 0; background: transparent; color: var(--accent); font-size: 16px; font-weight: 700; line-height: 1; letter-spacing: -.03em; paint-order: stroke fill; -webkit-text-stroke: 3px var(--surface); }
+.marked-icon .duration-mark-unlimited { font-size: 21px; line-height: 16px; }
 .empty-state { display: grid; justify-items: center; gap: 12px; }
 .empty-state p { margin: 0; }
 
