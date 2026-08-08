@@ -23,10 +23,9 @@
 .snake-cell.is-snake { z-index:2; }
 .snake-cell.is-head { z-index:3; }
 .snake-sprite { position:absolute; inset:-8%; background-image:var(--snake-atlas); background-repeat:no-repeat; background-size:400% 300%; transform:rotate(var(--sprite-rotate,0deg)); filter:drop-shadow(0 2px 2px #0008); }
-.snake-cell.is-head .snake-sprite { filter:drop-shadow(0 0 3px #fff) drop-shadow(0 2px 2px #0009); transform:rotate(var(--sprite-rotate,0deg)) scale(1.09); }
-.snake-cell.is-reward .snake-sprite { inset:-15%; filter:drop-shadow(0 2px 2px #0007); }
-.snake-cell[data-kind="coin"] .snake-sprite { inset:-22%; filter:drop-shadow(0 0 4px #ffe772) drop-shadow(0 2px 2px #0008); }
-.snake-cell[data-kind="mystery"] .snake-sprite { inset:-18%; }
+.snake-cell.is-head .snake-sprite { filter:drop-shadow(0 0 3px #fff) drop-shadow(0 2px 2px #0009); transform:rotate(var(--sprite-rotate,0deg)) scale(1.28); }
+.snake-cell.is-reward .snake-sprite { inset:-30%; filter:drop-shadow(0 2px 2px #0007); }
+.snake-cell[data-kind="coin"] .snake-sprite { filter:drop-shadow(0 0 4px #ffe772) drop-shadow(0 2px 2px #0008); }
 .snake-cell.is-blinking .snake-sprite { opacity:.25; }
 .snake-feedback { position:absolute; z-index:5; inset:0; pointer-events:none; }
 .snake-float { position:absolute; color:#fff; font-size:20px; font-weight:900; line-height:1; text-shadow:0 2px 2px #000,0 0 6px #000; will-change:transform,opacity; }

@@ -22,6 +22,8 @@ export const cfg = Object.freeze({
   EnergyGreenThreshold: 100,
   EnergyOrangeThreshold: 200,
   EnergyPurpleThreshold: 400,
+  CellScoreBase: 1,
+  CellEnergyCharge: 2,
   ScoreEnergyDivisor: 50,
 
   PumpWaitMS: 10,

@@ -39,7 +39,7 @@ export function validateSnakeConfig(value) {
     "BoardSize", "InitialLength", "RewardCount", "EdgeBandWidth", "RewardLifetimeMS", "RewardBlinkMS",
     "PrepareMS", "SwipeThresholdPx", "InitialStepMS", "SpeedTierMS", "SpeedStepMS", "MinimumStepMS",
     "EnergyInitial", "EnergyMinimum", "EnergyMaximum", "EnergyPerUnit", "EnergyDecayMS", "EnergyDecayDelta",
-    "EnergyGreenThreshold", "EnergyOrangeThreshold", "EnergyPurpleThreshold", "ScoreEnergyDivisor",
+    "EnergyGreenThreshold", "EnergyOrangeThreshold", "EnergyPurpleThreshold", "CellScoreBase", "CellEnergyCharge", "ScoreEnergyDivisor",
     "PumpWaitMS", "RenderWaitMS",
   ];
   for (const key of positive) if (!Number.isSafeInteger(value?.[key]) || value[key] <= 0) throw new RangeError(`Invalid Snake config: ${key}`);
@@ -85,10 +85,10 @@ export function drawRewardType(rng) { return WEIGHTED_TYPES[nextBounded(rng, WEI
 export function drawMysteryType(rng) { return MYSTERY_TYPES[nextBounded(rng, MYSTERY_TYPES.length)]; }
 
 export function rewardEffect(type) {
-  if (type === REWARD_FORAGE) return Object.freeze({ growth: 1, scoreUnits: 1, energyUnits: 1, segmentKind: "snake" });
-  if (type === REWARD_PREDATION) return Object.freeze({ growth: 3, scoreUnits: 3, energyUnits: 3, segmentKind: "snake" });
+  if (type === REWARD_FORAGE) return Object.freeze({ growth: 1, scoreUnits: 10, energyUnits: 1, segmentKind: "snake" });
+  if (type === REWARD_PREDATION) return Object.freeze({ growth: 3, scoreUnits: 30, energyUnits: 3, segmentKind: "snake" });
   if (type === REWARD_ANT) return Object.freeze({ growth: 1, scoreUnits: 0, energyUnits: 0, segmentKind: "ant" });
-  if (type === REWARD_COIN) return Object.freeze({ growth: 0, scoreUnits: 5, energyUnits: 5, segmentKind: null });
+  if (type === REWARD_COIN) return Object.freeze({ growth: 0, scoreUnits: 50, energyUnits: 5, segmentKind: null });
   throw new RangeError("Mystery must be resolved before applying its reward effect");
 }
 

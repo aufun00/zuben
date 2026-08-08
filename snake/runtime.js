@@ -70,7 +70,11 @@ export function createSnakeRuntime({
   let snake = restored?.snake ?? createInitialSnake(cfg.BoardSize, cfg.InitialLength);
   let segmentKinds = restored?.segmentKinds ?? Object.freeze(Array(snake.length).fill("snake"));
   let direction = restored?.direction ?? "east";
-  let pendingDirection = null;
+  let stepStartGT = restored?.stepStartGT ?? 0;
+  let nextDirection = restored?.nextDirection ?? null;
+  let followingDirection = restored?.followingDirection ?? null;
+  let frontActionAccepted = restored?.frontActionAccepted ?? false;
+  let rearActionAccepted = restored?.rearActionAccepted ?? false;
   let growthKinds = restored?.growthKinds ?? Object.freeze([]);
   let rewards = restored?.rewards ?? Object.freeze([]);
   let nextRewardSerial = restored?.nextRewardSerial ?? 0;
@@ -144,7 +148,8 @@ export function createSnakeRuntime({
     try {
       const tickBN = readBN();
       const deadlineBN = gameTime.getDeadlineBN();
-      if (phase === PHASE_RUNNING && deadlineBN !== null && tickBN >= deadlineBN) runDeadline(tickBN);
+      if (phase === PHASE_RUNNING && settling) drainQueue(tickBN, tickBN);
+      else if (phase === PHASE_RUNNING && deadlineBN !== null && tickBN >= deadlineBN) runDeadline(tickBN);
       else drainQueue(tickBN, tickBN);
       publishSnapshot(tickBN);
       if (phase === PHASE_RUNNING) onPump?.(readBN());
@@ -199,7 +204,17 @@ export function createSnakeRuntime({
       const actionGT = gameTime.getGT(item.BN);
       if (actionGT === null || actionGT < 0 || (!unlimited && actionGT >= limitMS)) return;
       const requested = item.data?.direction;
-      if (!isOpposite(direction, requested)) pendingDirection = requested;
+      const midpointGT = stepStartGT + (nextStepGT - stepStartGT) / 2;
+      if (actionGT < midpointGT) {
+        if (frontActionAccepted || isOpposite(direction, requested)) return;
+        frontActionAccepted = true;
+        nextDirection = requested;
+      } else {
+        const plannedDirection = nextDirection ?? direction;
+        if (rearActionAccepted || isOpposite(plannedDirection, requested)) return;
+        rearActionAccepted = true;
+        followingDirection = requested;
+      }
       return;
     }
     if (item.type === TYPE_STEP) {
@@ -217,9 +232,9 @@ export function createSnakeRuntime({
 
   function performStep(stepGT) {
     settleEnergy(stepGT);
-    const nextDirection = pendingDirection ?? direction;
-    pendingDirection = null;
-    const head = nextCell(snake[0], nextDirection, cfg.BoardSize);
+    const scoringEnergy = energy;
+    const appliedDirection = nextDirection ?? direction;
+    const head = nextCell(snake[0], appliedDirection, cfg.BoardSize);
     if (head < 0) { die("WALL", stepGT); return; }
 
     const tailWillMove = growthKinds.length === 0;
@@ -228,7 +243,12 @@ export function createSnakeRuntime({
       if (snake[index] === head) { die("BODY", stepGT); return; }
     }
 
-    direction = nextDirection;
+    direction = appliedDirection;
+    stepStartGT = stepGT;
+    nextDirection = followingDirection;
+    followingDirection = null;
+    frontActionAccepted = false;
+    rearActionAccepted = false;
     const picked = rewards.find((reward) => reward.index === head) ?? null;
     let resolvedType = null;
     let effect = null;
@@ -258,12 +278,14 @@ export function createSnakeRuntime({
     segmentKinds = Object.freeze(nextKinds);
     growthKinds = Object.freeze(nextGrowth);
     stepCount += 1;
+    score = Math.min(SCORE_MAX, score + Math.floor(cfg.CellScoreBase * scoringEnergy / cfg.ScoreEnergyDivisor));
 
     if (picked !== null) {
       rewards = Object.freeze(rewards.filter((reward) => reward.id !== picked.id));
       pickupCount += 1;
-      applyPickup({ picked, resolvedType, effect, wasMystery, stepGT });
+      applyPickup({ picked, resolvedType, effect, wasMystery, stepGT, scoringEnergy });
     }
+    energy = Math.min(cfg.EnergyMaximum, energy + cfg.CellEnergyCharge);
 
     if (!refillRewards(stepGT)) { end("BOARD_FILLED", stepGT); return; }
     nextStepGT = stepGT + getStepMS(stepGT, cfg);
@@ -271,8 +293,8 @@ export function createSnakeRuntime({
     scheduleBoundaries();
   }
 
-  function applyPickup({ picked, resolvedType, effect, wasMystery, stepGT }) {
-    const scoreDelta = effect.scoreUnits === 0 ? 0 : Math.floor(effect.scoreUnits * energy / cfg.ScoreEnergyDivisor);
+  function applyPickup({ picked, resolvedType, effect, wasMystery, stepGT, scoringEnergy }) {
+    const scoreDelta = effect.scoreUnits === 0 ? 0 : Math.floor(effect.scoreUnits * scoringEnergy / cfg.ScoreEnergyDivisor);
     score = Math.min(SCORE_MAX, score + scoreDelta);
     energy = Math.min(cfg.EnergyMaximum, energy + effect.energyUnits * cfg.EnergyPerUnit);
     const showNumber = !(wasMystery && resolvedType === REWARD_ANT);
@@ -280,7 +302,7 @@ export function createSnakeRuntime({
       id: ++feedbackSequence,
       atGT: stepGT,
       index: picked.index,
-      text: showNumber ? `+${effect.growth || effect.scoreUnits}` : "",
+      text: showNumber ? `+${effect.scoreUnits || effect.growth}` : "",
       type: picked.type,
       resolvedType,
       mystery: wasMystery,
@@ -345,7 +367,7 @@ export function createSnakeRuntime({
     gameTime.pause(BN);
     removeQueued(TYPE_STEP);
     removeQueued(TYPE_REWARD_EXPIRE);
-    pendingDirection = null;
+    clearPlannedDirections();
     phase = PHASE_PAUSED;
   }
 
@@ -359,7 +381,7 @@ export function createSnakeRuntime({
     settling = false;
     endReason = reason;
     endedGT = atGT;
-    pendingDirection = null;
+    clearPlannedDirections();
     iQ.length = 0;
     if (pumpTimer !== null) clearTimer(pumpTimer);
     pumpTimer = null;
@@ -370,7 +392,7 @@ export function createSnakeRuntime({
     settling = true;
     endReason = "TIME_UP";
     endedGT = limitMS;
-    pendingDirection = null;
+    clearPlannedDirections();
     iQ.length = 0;
     insertInternal(TYPE_FINISH_SETTLEMENT, tickBN + DEADLINE_SETTLEMENT_MS);
   }
@@ -388,7 +410,11 @@ export function createSnakeRuntime({
       snake,
       segmentKinds,
       direction,
-      pendingDirection,
+      stepStartGT,
+      nextDirection,
+      followingDirection,
+      frontActionAccepted,
+      rearActionAccepted,
       growthRemaining: growthKinds.length,
       rewards,
       score,
@@ -426,11 +452,16 @@ export function createSnakeRuntime({
 
   function freezeCheckpoint(runGT) {
     return Object.freeze({
-      version: 1,
+      version: 2,
       runGT,
       snake,
       segmentKinds,
       direction,
+      stepStartGT,
+      nextDirection,
+      followingDirection,
+      frontActionAccepted,
+      rearActionAccepted,
       growthKinds,
       rewards,
       nextRewardSerial,
@@ -442,6 +473,13 @@ export function createSnakeRuntime({
       pickupCount,
       rngState: rng.exportState(),
     });
+  }
+
+  function clearPlannedDirections() {
+    nextDirection = null;
+    followingDirection = null;
+    frontActionAccepted = false;
+    rearActionAccepted = false;
   }
 
   function schedulePump() {
@@ -491,23 +529,28 @@ export function createSnakeRuntime({
 }
 
 function normalizeCheckpoint(value, cfg) {
-  if (!value || typeof value !== "object" || value.version !== 1 || !Number.isFinite(value.runGT) || value.runGT < 0) throw new TypeError("Invalid Snake checkpoint");
+  if (!value || typeof value !== "object" || value.version !== 2 || !Number.isFinite(value.runGT) || value.runGT < 0) throw new TypeError("Invalid Snake checkpoint");
   const snake = Object.freeze(Array.isArray(value.snake) ? [...value.snake] : []);
   const segmentKinds = Object.freeze(Array.isArray(value.segmentKinds) ? [...value.segmentKinds] : []);
   const rewards = Object.freeze(Array.isArray(value.rewards) ? value.rewards.map((reward) => Object.freeze({ ...reward })) : []);
   validateSnakeState({ snake, segmentKinds, rewards, size: cfg.BoardSize });
-  if (!isDirection(value.direction) || !Array.isArray(value.growthKinds) || value.growthKinds.some((kind) => kind !== "snake" && kind !== "ant")) throw new TypeError("Invalid Snake checkpoint direction or growth");
+  if (!isDirection(value.direction) || value.nextDirection !== null && !isDirection(value.nextDirection) || value.followingDirection !== null && !isDirection(value.followingDirection) || !Array.isArray(value.growthKinds) || value.growthKinds.some((kind) => kind !== "snake" && kind !== "ant")) throw new TypeError("Invalid Snake checkpoint direction or growth");
   for (const reward of rewards) {
     if (!Number.isSafeInteger(reward.id) || reward.id < 0 || !Number.isFinite(reward.bornGT) || reward.bornGT < 0 || !Number.isFinite(reward.expiresGT) || reward.expiresGT <= reward.bornGT || !Number.isSafeInteger(reward.variant) || reward.variant < 0) throw new TypeError("Invalid Snake checkpoint reward");
   }
   for (const field of ["nextRewardSerial", "score", "energy", "stepCount", "pickupCount"]) if (!Number.isSafeInteger(value[field]) || value[field] < 0) throw new TypeError(`Invalid Snake checkpoint ${field}`);
-  if (value.score > SCORE_MAX || value.energy < cfg.EnergyMinimum || value.energy > cfg.EnergyMaximum || !Number.isFinite(value.energyDecayGT) || value.energyDecayGT < 0 || value.energyDecayGT > value.runGT || !Number.isFinite(value.nextStepGT) || value.nextStepGT <= value.runGT) throw new TypeError("Invalid Snake checkpoint counters");
+  if (value.score > SCORE_MAX || value.energy < cfg.EnergyMinimum || value.energy > cfg.EnergyMaximum || !Number.isFinite(value.energyDecayGT) || value.energyDecayGT < 0 || value.energyDecayGT > value.runGT || !Number.isFinite(value.stepStartGT) || value.stepStartGT < 0 || value.stepStartGT > value.runGT || !Number.isFinite(value.nextStepGT) || value.nextStepGT <= value.runGT || value.stepStartGT >= value.nextStepGT || typeof value.frontActionAccepted !== "boolean" || typeof value.rearActionAccepted !== "boolean") throw new TypeError("Invalid Snake checkpoint counters");
   if (typeof value.rngState !== "string" || !/^[0-9a-f]{16}$/i.test(value.rngState)) throw new TypeError("Invalid Snake checkpoint RNG state");
   return Object.freeze({
     runGT: value.runGT,
     snake,
     segmentKinds,
     direction: value.direction,
+    stepStartGT: value.stepStartGT,
+    nextDirection: value.nextDirection,
+    followingDirection: value.followingDirection,
+    frontActionAccepted: value.frontActionAccepted,
+    rearActionAccepted: value.rearActionAccepted,
     growthKinds: Object.freeze([...value.growthKinds]),
     rewards,
     nextRewardSerial: value.nextRewardSerial,
