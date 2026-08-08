@@ -1,6 +1,7 @@
 import { cfg, LINEFIT_SHAPES } from "./config.js";
 import { canPlaceShapeAnywhere, canPlaceShapeAt } from "./engine.js";
 import { OPERATION_CLEARING, OPERATION_IDLE, PHASE_RUNNING } from "./runtime.js";
+import { createLineFitSound } from "./sound.js";
 
 export function createLineFitRenderer({
   gameZone,
@@ -11,8 +12,13 @@ export function createLineFitRenderer({
   const boardElement = gameZone.querySelector("[data-linefit-board]");
   const boardGrid = gameZone.querySelector("[data-linefit-grid]");
   const trayElement = gameZone.querySelector("[data-linefit-tray]");
+  boardGrid.replaceChildren();
+  trayElement.replaceChildren();
   const boardCells = createBoardCells(boardGrid, cfg.BoardSize ** 2);
   const traySlots = createTraySlots(trayElement, cfg.TraySize);
+  const gamePage = gameZone.closest(".game-page");
+  const soundSurface = gamePage?.querySelector(".game-button") ?? gamePage ?? gameZone;
+  const sound = createLineFitSound({ surface: soundSurface });
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
   let renderTimer = null;
   let visible = !document.hidden;
@@ -36,7 +42,7 @@ export function createLineFitRenderer({
       return;
     }
     const snapshot = runtime.snapshot();
-    if (snapshot) paintSnapshot(snapshot);
+    if (snapshot) { sound.sync(snapshot); paintSnapshot(snapshot); }
     performanceMeter.recordFrame(readBN());
     schedule();
   }
@@ -189,6 +195,7 @@ export function createLineFitRenderer({
     cancelDrag,
     setVisible(nextVisible) {
       visible = Boolean(nextVisible);
+      sound.setVisible(visible);
       if (!visible) {
         cancelDrag();
         if (renderTimer !== null) clearTimeout(renderTimer);
@@ -203,6 +210,7 @@ export function createLineFitRenderer({
       cancelDrag();
       if (renderTimer !== null) clearTimeout(renderTimer);
       renderTimer = null;
+      sound.destroy();
     },
   });
 }

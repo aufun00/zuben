@@ -1,7 +1,7 @@
 export const GAME_LANG = {
   zh: {
     name: "LineFit",
-    description: "把三组方块放入8×8棋盘，填满横行或竖列并消除。",
+    description: "把三组方块放入7×7棋盘，填满横行或竖列并消除。",
     rules: "每批三个固定朝向方块，可按任意顺序拖入棋盘；填满的横行和竖列同时消除，三个都放完才生成下一批。",
     instructionsTitle: "填满并消除行列",
     operationPlace: "拖动下方候选块；合法落点显示阴影，棋盘外或重叠位置释放会取消。",
@@ -9,11 +9,15 @@ export const GAME_LANG = {
     operationScore: "落地cell数充能；放置得分与同时消除行列数的平方奖励乘当前能量倍率。",
     board: "LineFit方块棋盘",
     energy: "充能",
+    checkpointTitle: "继续不限时游戏？",
+    checkpointCopy: "发现这场挑战尚未完成的本机断点。继续会从暂停状态恢复；新开会替换该断点。",
+    checkpointContinue: "继续",
+    checkpointNew: "新开",
     resultReasons: { TIME_UP: "时间结束", NO_MOVES: "所有候选都无处可放" },
   },
   en: {
     name: "LineFit",
-    description: "Fit three-piece batches into an 8×8 grid and clear full rows or columns.",
+    description: "Fit three-piece batches into a 7×7 grid and clear full rows or columns.",
     rules: "Drag three fixed-orientation pieces in any order. Full rows and columns clear together, and a new batch appears only after all three are used.",
     instructionsTitle: "Fill and clear lines",
     operationPlace: "Drag a piece from below. A shadow marks a legal landing; releasing off-grid or on an overlap cancels it.",
@@ -21,6 +25,10 @@ export const GAME_LANG = {
     operationScore: "Placed cells charge energy. Placement points and the squared multi-line bonus use the current energy multiplier.",
     board: "LineFit block board",
     energy: "Energy",
+    checkpointTitle: "Continue unlimited game?",
+    checkpointCopy: "An unfinished local checkpoint exists for this challenge. Continue restores it paused; New replaces it.",
+    checkpointContinue: "Continue",
+    checkpointNew: "New",
     resultReasons: { TIME_UP: "Time up", NO_MOVES: "No remaining piece fits" },
   },
 };

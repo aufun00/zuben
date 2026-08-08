@@ -1,18 +1,18 @@
-const VERSION = "0.0.107";
+const VERSION = "0.0.114";
 const CACHE_NAME = `zuben-${VERSION}`;
 const NETWORK_TIMEOUT_MS = 3000;
 const CORE = [
   "./", "./index.html", "./index.js", "./index.css", "./homepage.js", "./homepage.css",
   "./lang.js", "./version.json", "./icon.svg", "./manifest.webmanifest",
-  "./common/game-list.js", "./common/storage.js", "./common/version-state.js", "./common/protocol-constants.js", "./common/game-time.js", "./common/icode.js", "./common/rng.js", "./common/qr.js", "./common/icons.js",
+  "./common/game-list.js", "./common/storage.js", "./common/version-state.js", "./common/protocol-constants.js", "./common/game-time.js", "./common/icode.js", "./common/rng.js", "./common/qr.js", "./common/icons.js", "./common/placement-sound.js", "./common/upgrade-sound.js",
   "./common/header.js", "./common/modal.js", "./common/site-exit.js", "./common/timeout.js", "./common/event-signal.js", "./common/game-audio.js", "./common/challenges.js", "./common/share.js", "./common/share-dialog.js", "./common/result-code.js", "./common/game-result.js",
   "./common/game-flow-config.js", "./common/game-controller.js", "./common/gesture-input.js", "./common/performance-meter.js", "./common/game-bar-charge.js", "./common/game-bar-tour.js", "./common/game-shell.js", "./common/game-shell.css",
   "./match3/config.js", "./match3/engine.js", "./match3/runtime.js", "./match3/render.js", "./match3/sound.js", "./match3/game.js", "./match3/game.css", "./match3/lang.js",
   "./match3/piece-1O.svg", "./match3/piece-2O.svg", "./match3/piece-3O.svg", "./match3/piece-4O.svg", "./match3/piece-5O.svg", "./match3/piece-6O.svg",
   "./stacker/config.js", "./stacker/engine.js", "./stacker/runtime.js", "./stacker/render.js", "./stacker/sound.js", "./stacker/game.js", "./stacker/game.css", "./stacker/lang.js", "./stacker/mesh.js", "./stacker/checkpoint.js",
   "./runner/config.js", "./runner/road.js", "./runner/runtime.js", "./runner/render.js", "./runner/svg.js", "./runner/game.js", "./runner/game.css", "./runner/lang.js",
-  "./2048/config.js", "./2048/engine.js", "./2048/runtime.js", "./2048/render.js", "./2048/game.js", "./2048/game.css", "./2048/lang.js",
-  "./linefit/config.js", "./linefit/engine.js", "./linefit/energy.js", "./linefit/runtime.js", "./linefit/render.js", "./linefit/game.js", "./linefit/game.css", "./linefit/lang.js",
+  "./2048/config.js", "./2048/engine.js", "./2048/runtime.js", "./2048/render.js", "./2048/sound.js", "./2048/game.js", "./2048/game.css", "./2048/lang.js", "./2048/checkpoint.js",
+  "./linefit/config.js", "./linefit/engine.js", "./linefit/energy.js", "./linefit/runtime.js", "./linefit/render.js", "./linefit/game.js", "./linefit/game.css", "./linefit/lang.js", "./linefit/checkpoint.js", "./linefit/sound.js",
 ];
 const CORE_URLS = new Set(CORE.map((path) => new URL(path, self.location.href).href));
 

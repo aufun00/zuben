@@ -2,7 +2,7 @@ import { SCORE_MAX } from "../common/protocol-constants.js";
 import { createGameTime, DEADLINE_SETTLEMENT_MS } from "../common/game-time.js";
 import { createLogicRng } from "../common/rng.js";
 import { createEnergy } from "./energy.js";
-import { hasAnyMove, placeShape, validateLineFitConfig } from "./engine.js";
+import { hasAnyMove, placeShape, validateBoard, validateLineFitConfig } from "./engine.js";
 
 export const PHASE_INIT = "PHASE_INIT";
 export const PHASE_READY = "PHASE_READY";
@@ -28,6 +28,7 @@ export function createLineFitRuntime({
   shapes,
   seed,
   limitMS,
+  checkpoint = null,
   readBN = () => performance.now(),
   setTimer = (callback, delay) => setTimeout(callback, delay),
   clearTimer = (timer) => clearTimeout(timer),
@@ -37,18 +38,23 @@ export function createLineFitRuntime({
 }) {
   validateLineFitConfig(cfg, shapes);
   if (!(seed instanceof Uint8Array) || seed.length !== 6) throw new TypeError("seed must be a 6-byte Uint8Array");
+  const unlimited = limitMS === null;
+  if (!unlimited && (!Number.isSafeInteger(limitMS) || limitMS <= 0)) throw new RangeError("limitMS must be null or a positive safe integer");
+  if (checkpoint !== null && !unlimited) throw new TypeError("Only unlimited LineFit games can restore checkpoints");
+  const restored = checkpoint === null ? null : normalizeCheckpoint(checkpoint, cfg, shapes);
   const gameTime = createGameTime(limitMS);
 
-  const rng = createLogicRng(seed);
-  const eng = createEnergy(cfg);
+  const rng = createLogicRng(seed, restored?.rngState ?? null);
+  const eng = createEnergy(cfg, restored?.energy ?? null);
   let phase = PHASE_INIT;
   let operation = OPERATION_IDLE;
-  let board = Object.freeze(Array(cfg.BoardSize ** 2).fill(0));
-  let tray = drawBatch(cfg, shapes, rng);
-  let score = 0;
-  let placementCount = 0;
-  let clearedLineCount = 0;
+  let board = restored?.board ?? Object.freeze(Array(cfg.BoardSize ** 2).fill(0));
+  let tray = restored?.tray ?? drawBatch(cfg, shapes, rng);
+  let score = restored?.score ?? 0;
+  let placementCount = restored?.placementCount ?? 0;
+  let clearedLineCount = restored?.clearedLineCount ?? 0;
   let transition = null;
+  let lastPlacement = null;
   let endReason = null;
   let endedGT = null;
   let settling = false;
@@ -58,9 +64,17 @@ export function createLineFitRuntime({
   let pumpTimer = null;
   let pumpDueBN = null;
   let latestSnapshot = null;
+  let latestCheckpoint = restored === null ? null : freezeCheckpoint(restored.runGT, board, tray, score, placementCount, clearedLineCount, eng.exportCheckpoint(), rng.exportState());
+  let checkpointRevision = restored === null ? 0 : 1;
   const iQ = [];
 
-  phase = PHASE_READY;
+  if (restored === null) phase = PHASE_READY;
+  else {
+    const anchorBN = readBN();
+    gameTime.reset(anchorBN - restored.runGT);
+    gameTime.pause(anchorBN);
+    phase = PHASE_PAUSED;
+  }
   publishSnapshot(readBN());
 
   function enqueue(type, BN, data = null) {
@@ -164,8 +178,10 @@ export function createLineFitRuntime({
     }
     if (item.type === TYPE_FINISH_CLEAR) {
       if (phase !== PHASE_RUNNING || operation !== OPERATION_CLEARING || item.data?.endGT !== transition?.endGT) return;
+      eng.advanceTo(item.data.endGT);
       operation = OPERATION_IDLE;
       transition = null;
+      captureCheckpoint(item.data.endGT);
       return;
     }
     if (item.type === TYPE_PLAYER_ACTION) handleAction(item);
@@ -174,7 +190,7 @@ export function createLineFitRuntime({
   function handleAction(item) {
     if (phase !== PHASE_RUNNING || settling || operation !== OPERATION_IDLE) return;
     const actionGT = gameTime.getGT(item.BN);
-    if (actionGT === null || actionGT < 0 || actionGT > limitMS) return;
+    if (actionGT === null || actionGT < 0 || (!unlimited && actionGT > limitMS)) return;
     const trayIndex = item.data?.trayIndex;
     const row = item.data?.row;
     const column = item.data?.column;
@@ -196,6 +212,7 @@ export function createLineFitRuntime({
     score = Math.min(SCORE_MAX, score + scoreDelta);
     placementCount += 1;
     clearedLineCount += result.clearCount;
+    lastPlacement = Object.freeze({ count: placementCount, actionGT, clearCount: result.clearCount });
 
     if (tray.every((value) => value === null)) tray = drawBatch(cfg, shapes, rng);
     if (!hasAnyMove(board, cfg.BoardSize, tray, shapes)) {
@@ -218,7 +235,7 @@ export function createLineFitRuntime({
       const finishBN = gameTime.getBN(endGT);
       if (finishBN === null) throw new Error("LineFit clear boundary is unavailable");
       insertInternal(TYPE_FINISH_CLEAR, finishBN, { endGT });
-    }
+    } else captureCheckpoint(actionGT);
   }
 
   function beginPreparing(tickBN) {
@@ -231,15 +248,17 @@ export function createLineFitRuntime({
     const pauseGT = gameTime.getGT(BN);
     if (pauseGT === null || pauseGT < 0) return;
     if (operation === OPERATION_CLEARING && transition !== null) {
-      const settledGT = Math.min(transition.endGT, limitMS);
+      const settledGT = unlimited ? transition.endGT : Math.min(transition.endGT, limitMS);
       eng.advanceTo(settledGT);
       gameTime.pauseAndJumpTo(BN, settledGT);
       removeQueued(TYPE_FINISH_CLEAR);
       operation = OPERATION_IDLE;
       transition = null;
+      captureCheckpoint(settledGT);
     } else {
       eng.advanceTo(pauseGT);
       gameTime.pause(BN);
+      captureCheckpoint(pauseGT);
     }
     phase = PHASE_PAUSED;
   }
@@ -262,13 +281,13 @@ export function createLineFitRuntime({
     const prepareRemainingMS = phase === PHASE_PREPARING && prepareAt !== null ? Math.max(0, prepareAt - sampleBN) : 0;
     const sampledGT = gameTime.getGT(sampleBN);
     const runGT = phase === PHASE_ENDED || settling ? endedGT : Math.max(0, sampledGT ?? 0);
-    if (phase === PHASE_RUNNING) eng.advanceTo(Math.min(runGT, limitMS));
+    if (phase === PHASE_RUNNING) eng.advanceTo(unlimited ? runGT : Math.min(runGT, limitMS));
     const energySnapshot = eng.snapshot();
     latestSnapshot = Object.freeze({
       phase,
       operation,
       runGT,
-      remainingMS: Math.max(0, limitMS - runGT),
+      remainingMS: unlimited ? null : Math.max(0, limitMS - runGT),
       prepareRemainingMS,
       board,
       tray,
@@ -278,9 +297,12 @@ export function createLineFitRuntime({
       placementCount,
       clearedLineCount,
       transition,
+      lastPlacement,
       endReason,
       endedGT,
       settling,
+      checkpoint: latestCheckpoint,
+      checkpointRevision,
       result: phase === PHASE_ENDED ? Object.freeze({ score, reason: endReason }) : null,
     });
     onSnapshot?.(latestSnapshot);
@@ -304,6 +326,12 @@ export function createLineFitRuntime({
     for (let index = iQ.length - 1; index >= 0; index -= 1) {
       if (iQ[index].type === type) iQ.splice(index, 1);
     }
+  }
+
+  function captureCheckpoint(runGT) {
+    if (!unlimited || !Number.isFinite(runGT) || runGT < 0) return;
+    latestCheckpoint = freezeCheckpoint(runGT, board, tray, score, placementCount, clearedLineCount, eng.exportCheckpoint(), rng.exportState());
+    checkpointRevision += 1;
   }
 
   function runSafely(operationFn) {
@@ -365,4 +393,38 @@ function drawBatch(cfg, shapes, rng) {
 
 function compareItems(left, right) {
   return left.BN - right.BN || left.sequence - right.sequence;
+}
+
+function freezeCheckpoint(runGT, board, tray, score, placementCount, clearedLineCount, energy, rngState) {
+  return Object.freeze({ version: 1, runGT, board, tray, score, placementCount, clearedLineCount, energy, rngState });
+}
+
+function normalizeCheckpoint(value, cfg, shapes) {
+  if (!value || typeof value !== "object" || value.version !== 1 || !Number.isFinite(value.runGT) || value.runGT < 0) throw new TypeError("Invalid LineFit checkpoint");
+  const board = Object.freeze(Array.isArray(value.board) ? [...value.board] : []);
+  validateBoard(board, cfg.BoardSize);
+  if (!Array.isArray(value.tray) || value.tray.length !== cfg.TraySize) throw new TypeError("Invalid LineFit checkpoint tray");
+  const tray = Object.freeze(value.tray.map((shapeIndex) => {
+    if (shapeIndex === null) return null;
+    if (!Number.isSafeInteger(shapeIndex) || !shapes[shapeIndex]) throw new TypeError("Invalid LineFit checkpoint tray");
+    return shapeIndex;
+  }));
+  for (const field of ["score", "placementCount", "clearedLineCount"]) {
+    if (!Number.isSafeInteger(value[field]) || value[field] < 0) throw new TypeError(`Invalid LineFit checkpoint ${field}`);
+  }
+  if (value.score > SCORE_MAX || value.clearedLineCount > value.placementCount * cfg.BoardSize * 2) throw new TypeError("Invalid LineFit checkpoint counters");
+  if (!value.energy || value.energy.version !== 1 || !Number.isSafeInteger(value.energy.energy) || value.energy.energy < 0 || !Number.isFinite(value.energy.settledGT) || value.energy.settledGT < 0 || value.energy.settledGT > value.runGT) throw new TypeError("Invalid LineFit checkpoint energy");
+  const energy = Object.freeze({ version: 1, energy: value.energy.energy, settledGT: value.energy.settledGT });
+  if (typeof value.rngState !== "string" || !/^[0-9a-f]{16}$/i.test(value.rngState)) throw new TypeError("Invalid LineFit checkpoint RNG state");
+  if (!hasAnyMove(board, cfg.BoardSize, tray, shapes)) throw new TypeError("Invalid ended LineFit checkpoint");
+  return Object.freeze({
+    runGT: value.runGT,
+    board,
+    tray,
+    score: value.score,
+    placementCount: value.placementCount,
+    clearedLineCount: value.clearedLineCount,
+    energy,
+    rngState: value.rngState.toLowerCase(),
+  });
 }

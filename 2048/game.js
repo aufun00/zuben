@@ -2,6 +2,7 @@ import {
   disposeGamePageResources,
   ensureGameStylesheet,
   failGamePage,
+  formatElapsed,
   formatRemaining,
   handleGameVisibilityChange,
   renderControllerFailure,
@@ -14,12 +15,15 @@ import {
 import { updateGameBarCharge } from "../common/game-bar-charge.js";
 import { updateGameResultView } from "../common/game-result.js";
 import { bindGameInput } from "../common/gesture-input.js";
+import { openModal } from "../common/modal.js";
+import { clear2048Checkpoint, load2048Checkpoint, save2048Checkpoint } from "./checkpoint.js";
 import { cfg, TWENTY48_PERFORMANCE_CFG } from "./config.js";
 import { dominantDirection } from "./engine.js";
 import { GAME_LANG } from "./lang.js";
 import { create2048Renderer, formatTileValue } from "./render.js";
 import {
   PHASE_ENDED,
+  PHASE_READY,
   PHASE_RUNNING,
   create2048Runtime,
 } from "./runtime.js";
@@ -35,7 +39,7 @@ export function renderGamePage(mount, context) {
   });
 }
 
-function setup2048({ page, gameZone, game, gameIdx, parsed, durationMs, ghostScore, strings, localized, performanceMeter }) {
+function setup2048({ page, gameZone, game, gameIdx, parsed, durationMs, unlimited, ghostScore, strings, localized, performanceMeter }) {
   let activeStrings = strings;
   let activeLocalized = localized;
   let latestSnapshot = null;
@@ -54,6 +58,8 @@ function setup2048({ page, gameZone, game, gameIdx, parsed, durationMs, ghostSco
   let renderedEnergy = null;
   let renderedMaxTile = null;
   let renderedMoveCount = null;
+  let savedCheckpointRevision = -1;
+  let checkpointPrompt = null;
 
   gameZone.classList.add("twenty48-zone");
   gameZone.innerHTML = `
@@ -82,19 +88,21 @@ function setup2048({ page, gameZone, game, gameIdx, parsed, durationMs, ghostSco
   const cover = gameZone.querySelector("[data-2048-cover]");
   const overlay = gameZone.querySelector("[data-2048-overlay]");
 
+  const storedCheckpoint = unlimited ? load2048Checkpoint(parsed.code) : null;
   try {
-    runtime = create2048Runtime({
-      cfg,
-      seed: parsed.seed,
-      limitMS: durationMs,
-      onSnapshot,
-      onPump: performanceMeter.recordTick,
-      onError,
-    });
-    renderer = create2048Renderer({ gameZone, runtime, performanceMeter });
-  } catch (error) {
-    onError(error, "INIT");
-    return { cleanup() {} };
+    createRuntime(storedCheckpoint);
+  } catch (restoreError) {
+    if (storedCheckpoint === null) {
+      onError(restoreError, "INIT");
+      return { cleanup() {} };
+    }
+    clear2048Checkpoint(parsed.code);
+    try {
+      createRuntime(null);
+    } catch (error) {
+      onError(error, "INIT");
+      return { cleanup() {} };
+    }
   }
 
   page.querySelector(".game-button").addEventListener("click", () => runtime.enqueueGameBarClick(performance.now()));
@@ -113,21 +121,35 @@ function setup2048({ page, gameZone, game, gameIdx, parsed, durationMs, ghostSco
   document.addEventListener("visibilitychange", onVisibility);
   renderInstructionText();
   onSnapshot(runtime.snapshot());
+  if (storedCheckpoint !== null && runtime.snapshot().phase !== PHASE_READY) showCheckpointPrompt();
+
+  function createRuntime(checkpoint) {
+    runtime = create2048Runtime({
+      cfg,
+      seed: parsed.seed,
+      limitMS: durationMs,
+      checkpoint,
+      onSnapshot,
+      onPump: performanceMeter.recordTick,
+      onError,
+    });
+    renderer = create2048Renderer({ gameZone, runtime, performanceMeter });
+  }
 
   function onSnapshot(snapshot) {
     if (destroyed || failed || !snapshot) return;
     const enteredRunning = latestSnapshot?.phase !== PHASE_RUNNING && snapshot.phase === PHASE_RUNNING;
     latestSnapshot = snapshot;
     const phaseChanged = updateGamePhasePresentation({ gameZone, playfield, performanceMeter }, { phase: snapshot.phase, previousPhase: renderedPhase, settling: snapshot.settling });
-    const timeText = formatRemaining(snapshot.remainingMS);
+    const timeText = unlimited ? formatElapsed(snapshot.runGT) : formatRemaining(snapshot.remainingMS);
     if (forceChrome || renderedTime !== timeText) {
       page.querySelector("[data-time]").textContent = timeText;
       renderedTime = timeText;
     }
-    const ghostElapsed = snapshot.phase === PHASE_ENDED ? durationMs : snapshot.runGT;
-    const shownGhost = durationMs === 0 ? ghostScore : Math.floor(ghostScore * Math.min(ghostElapsed, durationMs) / durationMs);
+    const ghostElapsed = unlimited || snapshot.phase === PHASE_ENDED ? 0 : snapshot.runGT;
+    const shownGhost = unlimited ? ghostScore : Math.floor(ghostScore * Math.min(ghostElapsed, durationMs) / durationMs);
     if (forceChrome || renderedScore !== snapshot.score || renderedGhost !== shownGhost) {
-      updateTugBar(page, snapshot.score, ghostScore, activeStrings, ghostElapsed, durationMs);
+      updateTugBar(page, snapshot.score, ghostScore, activeStrings, ghostElapsed, durationMs ?? 0);
       renderedScore = snapshot.score;
       renderedGhost = shownGhost;
     }
@@ -169,6 +191,72 @@ function setup2048({ page, gameZone, game, gameIdx, parsed, durationMs, ghostSco
     }));
     renderedPhase = snapshot.phase;
     forceChrome = false;
+
+    if (unlimited && snapshot.phase === PHASE_ENDED) {
+      clear2048Checkpoint(parsed.code);
+      savedCheckpointRevision = -1;
+    } else if (unlimited && snapshot.checkpoint && snapshot.checkpointRevision !== savedCheckpointRevision) {
+      save2048Checkpoint(parsed.code, snapshot.checkpoint);
+      savedCheckpointRevision = snapshot.checkpointRevision;
+    }
+  }
+
+  function showCheckpointPrompt() {
+    const backdrop = document.createElement("div");
+    backdrop.className = "modal-backdrop";
+    backdrop.innerHTML = `
+      <section class="modal-card twenty48-checkpoint-dialog" role="dialog" aria-labelledby="twenty48-checkpoint-title">
+        <h2 id="twenty48-checkpoint-title" data-checkpoint-title></h2>
+        <p data-checkpoint-copy></p>
+        <div class="modal-actions">
+          <button class="action-button" type="button" data-checkpoint-new></button>
+          <button class="action-button primary" type="button" data-checkpoint-continue></button>
+        </div>
+      </section>`;
+    const continueButton = backdrop.querySelector("[data-checkpoint-continue]");
+    const newButton = backdrop.querySelector("[data-checkpoint-new]");
+    const promptState = { backdrop, modal: null, setLanguage: renderCheckpointPrompt };
+    checkpointPrompt = promptState;
+    renderCheckpointPrompt();
+    const modal = openModal(backdrop, {
+      initialFocus: continueButton,
+      returnFocus: page.querySelector(".game-button"),
+      closeOnBackdrop: false,
+      onBeforeClose: () => { if (checkpointPrompt === promptState) checkpointPrompt = null; },
+    });
+    promptState.modal = modal;
+    continueButton.addEventListener("click", () => { modal.close(); checkpointPrompt = null; });
+    newButton.addEventListener("click", () => {
+      modal.close({ restoreFocus: false });
+      checkpointPrompt = null;
+      clear2048Checkpoint(parsed.code);
+      savedCheckpointRevision = -1;
+      runtime.destroy();
+      renderer.destroy();
+      latestSnapshot = null;
+      renderedPhase = null;
+      renderedTime = null;
+      renderedScore = null;
+      renderedGhost = null;
+      renderedEnergy = null;
+      renderedMaxTile = null;
+      renderedMoveCount = null;
+      forceChrome = true;
+      try {
+        createRuntime(null);
+        onSnapshot(runtime.snapshot());
+      } catch (error) {
+        onError(error, "INIT");
+      }
+    });
+  }
+
+  function renderCheckpointPrompt() {
+    if (!checkpointPrompt) return;
+    checkpointPrompt.backdrop.querySelector("[data-checkpoint-title]").textContent = activeLocalized.checkpointTitle;
+    checkpointPrompt.backdrop.querySelector("[data-checkpoint-copy]").textContent = activeLocalized.checkpointCopy;
+    checkpointPrompt.backdrop.querySelector("[data-checkpoint-new]").textContent = activeLocalized.checkpointNew;
+    checkpointPrompt.backdrop.querySelector("[data-checkpoint-continue]").textContent = activeLocalized.checkpointContinue;
   }
 
   function onVisibility() {
@@ -195,6 +283,7 @@ function setup2048({ page, gameZone, game, gameIdx, parsed, durationMs, ghostSco
     setLanguage({ strings: nextStrings, localized: nextLocalized }) {
       activeStrings = nextStrings;
       activeLocalized = nextLocalized;
+      checkpointPrompt?.setLanguage();
       if (failed) {
         renderControllerFailure(page, activeStrings, failureCode);
         return;
@@ -211,6 +300,8 @@ function setup2048({ page, gameZone, game, gameIdx, parsed, durationMs, ghostSco
     cleanup() {
       if (destroyed) return;
       destroyed = true;
+      checkpointPrompt?.modal?.close({ restoreFocus: false });
+      checkpointPrompt = null;
       ({ input, renderer, runtime } = disposeGamePageResources({ visibilityHandler: onVisibility, input, renderer, runtime }));
     },
   };

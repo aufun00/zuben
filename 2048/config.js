@@ -1,5 +1,5 @@
 export const cfg = Object.freeze({
-  BoardSize: 5,           // Square board side length; 5 means a 5x5 board.
+  BoardSize: 4,           // Square board side length; 4 means a 4x4 board.
   InitialTileCount: 2,    // Tiles generated before READY.
   SpawnTileCount: 1,      // Tiles generated after each valid move.
   SpawnTwoWeight: 9,      // Relative probability weight for a new 2 tile.
@@ -10,13 +10,15 @@ export const cfg = Object.freeze({
   MoveMS: 140,            // Input-locking move transition duration, in milliseconds.
 
   EnergyInitial: 50,           // Starting energy before GameTime begins.
-  EnergyChargeMultiplier: 2,  // Merged-value sum is multiplied by this amount when charging.
+  EnergyMinimum: 50,           // Decay never lowers energy below the neutral x1 tier.
+  EnergyChargeBase: 10,        // One merge group charges this amount.
+  EnergyChargeMax: 80,         // Geometric multi-merge charge is capped per move.
   EnergyDecayMS: 100,          // Energy settles in deterministic GameTime steps.
   EnergyDecayDelta: 1,         // Energy lost at each decay step.
   EnergyGreenThreshold: 100,   // Reaching this energy enables the green score tier.
   EnergyOrangeThreshold: 200,  // Reaching this energy enables the orange score tier.
   EnergyPurpleThreshold: 400,  // Reaching this energy enables the purple score tier.
-  ScoreEnergyDivisor: 5,       // Score factor is charged energy divided by this value.
+  ScoreEnergyDivisor: 50,      // Score factor uses pre-move energy; 50 is neutral x1.
 
   PumpWaitMS: 10,         // Delay before the next one-shot Pump, in milliseconds.
   RenderWaitMS: 32,       // Non-harmonic delay avoids repeated alignment with the 10ms Pump.

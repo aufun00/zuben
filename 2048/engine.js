@@ -14,12 +14,13 @@ export function validate2048Config(cfg) {
   if (!Number.isSafeInteger(spawnWeight) || spawnWeight <= 0 || spawnWeight > 0x1_0000_0000) fail("spawnWeight");
   if (!Number.isSafeInteger(cfg.PrepareMS) || cfg.PrepareMS < 0) fail("PrepareMS");
   for (const key of [
-    "EnergyInitial", "EnergyChargeMultiplier", "EnergyDecayMS", "EnergyDecayDelta",
+    "EnergyInitial", "EnergyMinimum", "EnergyChargeBase", "EnergyChargeMax", "EnergyDecayMS", "EnergyDecayDelta",
     "EnergyGreenThreshold", "EnergyOrangeThreshold", "EnergyPurpleThreshold",
     "ScoreEnergyDivisor",
   ]) {
     if (!Number.isSafeInteger(cfg[key]) || cfg[key] <= 0) fail(key);
   }
+  if (cfg.EnergyInitial < cfg.EnergyMinimum || cfg.EnergyChargeMax < cfg.EnergyChargeBase) fail("energy range");
   if (!(cfg.EnergyGreenThreshold < cfg.EnergyOrangeThreshold &&
     cfg.EnergyOrangeThreshold < cfg.EnergyPurpleThreshold)) fail("energy thresholds");
   for (const key of ["SwipeThresholdPx", "MoveMS", "PumpWaitMS", "RenderWaitMS", "PerformanceWindowMS"]) {
@@ -43,6 +44,7 @@ export function moveBoard(board, size, direction) {
   const next = Array(board.length).fill(0);
   const motions = [];
   let scoreDelta = 0;
+  let mergeCount = 0;
 
   for (const indexes of createLines(size, direction)) {
     const source = indexes
@@ -57,6 +59,7 @@ export function moveBoard(board, size, direction) {
         if (!Number.isSafeInteger(value)) fail("merged tile");
         output.push({ value, sources: [...current.sources, ...following.sources], merged: true });
         scoreDelta += value;
+        mergeCount += 1;
         if (!Number.isSafeInteger(scoreDelta)) fail("scoreDelta");
         index += 1;
       } else {
@@ -80,6 +83,7 @@ export function moveBoard(board, size, direction) {
     board: Object.freeze(next),
     changed,
     scoreDelta,
+    mergeCount,
     motions: Object.freeze(motions),
   });
 }

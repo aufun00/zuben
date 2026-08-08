@@ -39,7 +39,7 @@ export const LINEFIT_SHAPES = Object.freeze([
 ]);
 
 export const cfg = Object.freeze({
-  BoardSize: 8,                // Square board side length.
+  BoardSize: 7,                // Square board side length.
   TraySize: 3,                 // A full batch always contains three pieces.
   TrayGridSize: 5,             // Each preview is aligned in a fixed 5x5 slot.
   PrepareMS: 0,                // Weak-operation game: start and resume immediately.

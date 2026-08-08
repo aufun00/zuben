@@ -4,6 +4,7 @@
   overflow: hidden;
   background: radial-gradient(circle at 50% 12%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 38%), var(--bg);
 }
+.linefit-checkpoint-dialog p { margin: 0; color: var(--muted); line-height: 1.5; }
 .linefit-playfield {
   position: absolute;
   inset: 0;
@@ -18,7 +19,7 @@
 }
 .linefit-playfield:focus-visible { outline: 3px solid var(--focus-ring); outline-offset: -5px; }
 .linefit-board {
-  --board-size: 8;
+  --board-size: 7;
   --board-gap: clamp(3px, .8cqw, 6px);
   width: min(94%, 540px, calc(var(--game-ui-height) - 335px));
   aspect-ratio: 1;
@@ -29,9 +30,21 @@
 }
 .linefit-grid { display: grid; width: 100%; height: 100%; grid-template-columns: repeat(var(--board-size), 1fr); grid-template-rows: repeat(var(--board-size), 1fr); gap: var(--board-gap); }
 .linefit-cell { min-width: 0; min-height: 0; border-radius: clamp(3px, .8cqw, 6px); background: color-mix(in srgb, var(--panel) 72%, #71808c); box-shadow: inset 0 1px 2px #fff1; }
-.linefit-cell.is-filled { background: linear-gradient(145deg, #aeb7bd, #68747d); box-shadow: inset 0 1px 2px #fff6, 0 2px 5px #0004; }
-.linefit-piece-preview .is-piece, .linefit-floating .is-piece { background: linear-gradient(145deg, color-mix(in srgb, var(--accent), #fff 22%), var(--accent)); box-shadow: inset 0 1px 2px #fff7, 0 2px 5px #0004; }
-.linefit-cell.is-preview { background: color-mix(in srgb, var(--accent) 54%, transparent); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent), #fff 28%); }
+.linefit-cell.is-filled {
+  border: 1px solid #c8d1d6;
+  background:
+    radial-gradient(circle at 30% 20%, #fff9 0 7%, transparent 27%),
+    linear-gradient(180deg, #d9e0e4, #939fa7 48%, #56616a);
+  box-shadow: inset 0 2px 1px #fffa, inset 0 -3px 4px #39444dcc, 0 2px 5px #0005;
+}
+.linefit-piece-preview .is-piece, .linefit-floating .is-piece {
+  border: 1px solid var(--crystal-border);
+  background:
+    radial-gradient(circle at 30% 20%, #fff9 0 7%, transparent 27%),
+    linear-gradient(180deg, var(--crystal-top), var(--crystal-middle) 48%, var(--crystal-bottom));
+  box-shadow: inset 0 2px 1px var(--crystal-highlight), inset 0 -3px 4px var(--crystal-shade), 0 2px 5px #0005;
+}
+.linefit-cell.is-preview { background: color-mix(in srgb, var(--accent) 30%, transparent); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--crystal-border) 82%, transparent), 0 0 8px color-mix(in srgb, var(--accent) 42%, transparent); }
 .linefit-cell.is-clearing { animation: linefit-clear 300ms ease-in both; }
 .linefit-cell.is-new:not(.is-clearing) { animation: linefit-place 160ms ease-out; }
 .linefit-tray { --tray-grid-size: 5; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); width: min(94%, 540px); gap: clamp(6px, 2cqw, 14px); }

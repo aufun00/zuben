@@ -1,9 +1,10 @@
 import { SCORE_MAX } from "../common/protocol-constants.js";
 
-export function createEnergy(cfg) {
+export function createEnergy(cfg, checkpoint = null) {
   validateEnergyConfig(cfg);
-  let energy = cfg.EnergyInitial;
-  let settledGT = 0;
+  const restored = checkpoint === null ? null : normalizeCheckpoint(checkpoint);
+  let energy = restored?.energy ?? cfg.EnergyInitial;
+  let settledGT = restored?.settledGT ?? 0;
 
   function advanceTo(targetGT) {
     if (!Number.isFinite(targetGT) || targetGT < settledGT) throw new RangeError("energy targetGT must be monotonic");
@@ -40,7 +41,11 @@ export function createEnergy(cfg) {
     return Object.freeze({ energy, multiplier: multiplier(), settledGT });
   }
 
-  return Object.freeze({ advanceTo, charge, applyScore, snapshot });
+  function exportCheckpoint() {
+    return Object.freeze({ version: 1, energy, settledGT });
+  }
+
+  return Object.freeze({ advanceTo, charge, applyScore, snapshot, exportCheckpoint });
 }
 
 function validateEnergyConfig(cfg) {
@@ -50,4 +55,10 @@ function validateEnergyConfig(cfg) {
   ]) {
     if (!Number.isSafeInteger(cfg?.[key]) || cfg[key] <= 0) throw new RangeError(`Invalid energy config: ${key}`);
   }
+}
+
+function normalizeCheckpoint(value) {
+  if (!value || typeof value !== "object" || value.version !== 1) throw new TypeError("Invalid LineFit energy checkpoint");
+  if (!Number.isSafeInteger(value.energy) || value.energy < 0 || !Number.isFinite(value.settledGT) || value.settledGT < 0) throw new TypeError("Invalid LineFit energy checkpoint");
+  return Object.freeze({ energy: value.energy, settledGT: value.settledGT });
 }
