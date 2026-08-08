@@ -4,7 +4,7 @@ export const cfg = Object.freeze({
   InitialLength: 4,
   RewardCount: 3,
   EdgeBandWidth: 2,
-  RewardLifetimeMS: 10_000,
+  RewardLifetimeMS: 20_000,
   RewardBlinkMS: 3_000,
 
   PrepareMS: 3_000,
