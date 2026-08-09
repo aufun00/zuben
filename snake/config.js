@@ -9,7 +9,7 @@ export const cfg = Object.freeze({
 
   PrepareMS: 3_000,
   SwipeThresholdPx: 28,
-  InitialStepMS: 400,
+  InitialStepMS: 250,
   SpeedTierMS: 30_000,
   SpeedStepMS: 50,
   MinimumStepMS: 50,
