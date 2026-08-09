@@ -11,7 +11,7 @@ const TOUR_STEP_SELECTORS = Object.freeze([
   "[data-game-bar-charge]",
 ]);
 
-export function createGameBarTour(page, strings, { unlimited = false } = {}) {
+export function createGameBarTour(page, strings, { unlimited = false, onDone } = {}) {
   if (!page?.querySelector || getPreference("gameBarTour", "") === GAME_BAR_TOUR_VERSION) {
     return inactiveBinding();
   }
@@ -53,7 +53,8 @@ export function createGameBarTour(page, strings, { unlimited = false } = {}) {
   done.addEventListener("click", () => {
     setPreference("gameBarTour", GAME_BAR_TOUR_VERSION);
     destroy();
-    requestAnimationFrame(() => gameButton.focus({ preventScroll: true }));
+    const restoreGameFocus = onDone?.() !== false;
+    if (restoreGameFocus) requestAnimationFrame(() => gameButton.focus({ preventScroll: true }));
   });
   render();
   requestAnimationFrame(() => done.focus({ preventScroll: true }));

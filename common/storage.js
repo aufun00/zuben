@@ -17,12 +17,18 @@ const KEYS = {
   challenges: "zuben.challengeList",
   readedVer: "zuben.readedVer",
   gameBarTour: "zuben.gameBarTour",
+  music: "zuben.music",
+  soundEffects: "zuben.soundEffects",
+  metrics: "zuben.metrics",
+  linefitUIStyle: "zuben.linefitUIStyle",
+  linefitUIStyleChosen: "zuben.linefitUIStyleChosen",
 };
 
 const memoryPreferences = new Map();
 let memoryChallenges = [];
 let storageAvailable = true;
 const storageListeners = new Set();
+const preferenceListeners = new Map();
 
 export function isPersistentStorageAvailable() {
   return storageAvailable;
@@ -34,9 +40,9 @@ export function subscribeStorageAvailability(listener) {
 }
 
 export function getPreference(key, fallback) {
-  if (storageAvailable) {
+  if (storageAvailable && typeof globalThis.localStorage !== "undefined") {
     try {
-      const value = localStorage.getItem(KEYS[key]);
+      const value = globalThis.localStorage.getItem(KEYS[key]);
       if (value !== null) {
         memoryPreferences.set(key, value);
         return value;
@@ -51,14 +57,29 @@ export function getPreference(key, fallback) {
 export function setPreference(key, value) {
   const normalized = String(value);
   memoryPreferences.set(key, normalized);
-  if (storageAvailable) {
+  if (storageAvailable && typeof globalThis.localStorage !== "undefined") {
     try {
-      localStorage.setItem(KEYS[key], normalized);
+      globalThis.localStorage.setItem(KEYS[key], normalized);
     } catch (error) {
       markStorageUnavailable(error);
     }
   }
+  for (const listener of preferenceListeners.get(key) ?? []) listener(normalized);
   return storageAvailable;
+}
+
+export function subscribePreference(key, listener) {
+  if (typeof listener !== "function") throw new TypeError("listener must be a function");
+  let listeners = preferenceListeners.get(key);
+  if (!listeners) {
+    listeners = new Set();
+    preferenceListeners.set(key, listeners);
+  }
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+    if (listeners.size === 0) preferenceListeners.delete(key);
+  };
 }
 
 export function loadChallenges() {

@@ -44,6 +44,15 @@
     linear-gradient(180deg, var(--crystal-top), var(--crystal-middle) 48%, var(--crystal-bottom));
   box-shadow: inset 0 2px 1px var(--crystal-highlight), inset 0 -3px 4px var(--crystal-shade), 0 2px 5px #0005;
 }
+[data-linefit-ui-style="colorful"] .linefit-cell.is-filled,
+[data-linefit-ui-style="colorful"] .linefit-piece-preview .is-piece,
+.linefit-floating[data-linefit-ui-style="colorful"] .is-piece {
+  border-color: color-mix(in srgb, var(--linefit-color-top) 72%, white);
+  background:
+    radial-gradient(circle at 30% 20%, #fff9 0 7%, transparent 27%),
+    linear-gradient(180deg, var(--linefit-color-top), var(--linefit-color-middle) 48%, var(--linefit-color-bottom));
+  box-shadow: inset 0 2px 1px #fffa, inset 0 -3px 4px color-mix(in srgb, var(--linefit-color-bottom) 78%, black), 0 2px 5px #0005;
+}
 .linefit-cell.is-preview { background: color-mix(in srgb, var(--accent) 30%, transparent); box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--crystal-border) 82%, transparent), 0 0 8px color-mix(in srgb, var(--accent) 42%, transparent); }
 .linefit-cell.is-clearing { animation: linefit-clear 300ms ease-in both; }
 .linefit-cell.is-new:not(.is-clearing) { animation: linefit-place 160ms ease-out; }
@@ -59,6 +68,26 @@
 .linefit-floating.is-valid { opacity: .94; filter: none; }
 .linefit-cover { position: absolute; z-index: 4; inset: 0; display: grid; padding: 18px; place-items: center; border-radius: inherit; background: var(--bg); }
 .linefit-cover[hidden] { display: none; }
+.linefit-style-chooser { display: grid; width: min(100%, 324px); gap: 14px; padding: 18px; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); box-shadow: 0 18px 60px #0008; text-align: center; }
+.linefit-style-chooser[hidden], .linefit-rules[hidden] { display: none; }
+.linefit-style-chooser h1 { margin: 0; color: var(--accent); font-size: 22px; }
+.linefit-style-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.linefit-style-option { display: grid; min-width: 0; gap: 7px; padding: 8px; border: 2px solid transparent; border-radius: 15px; background: var(--surface-2); cursor: pointer; }
+.linefit-style-option:hover, .linefit-style-option:focus-visible { outline: none; border-color: color-mix(in srgb, var(--accent), transparent 55%); }
+.linefit-style-option[aria-checked="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent), transparent 72%), 0 0 18px color-mix(in srgb, var(--accent), transparent 28%); }
+.linefit-style-option strong { font-size: 13px; }
+.linefit-style-board { display: grid; width: 100%; aspect-ratio: 1; grid-template-columns: repeat(5, 1fr); grid-template-rows: repeat(5, 1fr); gap: 3px; padding: 6px; border-radius: 10px; background: #52606c; }
+.linefit-style-board i { min-width: 0; min-height: 0; border-radius: 22%; background: color-mix(in srgb, var(--panel) 72%, #71808c); box-shadow: inset 0 1px 2px #fff1; }
+.linefit-style-board .is-piece { border: 1px solid #c8d1d6; background: radial-gradient(circle at 30% 20%, #fff9 0 7%, transparent 27%), linear-gradient(180deg, #d9e0e4, #939fa7 48%, #56616a); box-shadow: inset 0 2px 1px #fffa, inset 0 -3px 4px #39444dcc, 0 2px 5px #0005; }
+.linefit-style-board[data-preview-style="colorful"] .is-piece { border-color: color-mix(in srgb, var(--preview-top) 72%, white); background: radial-gradient(circle at 30% 20%, #fff9 0 7%, transparent 27%), linear-gradient(180deg, var(--preview-top), var(--preview-middle) 48%, var(--preview-bottom)); box-shadow: inset 0 2px 1px #fffa, inset 0 -3px 4px color-mix(in srgb, var(--preview-bottom) 78%, black), 0 2px 5px #0005; }
+.linefit-style-board .preview-color-0 { --preview-top: #ff9a9e; --preview-middle: #f45b69; --preview-bottom: #9f2440; }
+.linefit-style-board .preview-color-1 { --preview-top: #ffd36e; --preview-middle: #f2a93b; --preview-bottom: #9b5c13; }
+.linefit-style-board .preview-color-2 { --preview-top: #9cf08b; --preview-middle: #4dc96a; --preview-bottom: #18713b; }
+.linefit-style-board .preview-color-3 { --preview-top: #80ddff; --preview-middle: #3ba7db; --preview-bottom: #22598f; }
+.linefit-style-board .preview-color-4 { --preview-top: #c5a0ff; --preview-middle: #8d64dc; --preview-bottom: #573495; }
+.linefit-style-board .preview-color-5 { --preview-top: #ff9bd0; --preview-middle: #db579c; --preview-bottom: #8f2f67; }
+.linefit-style-chooser > p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; text-align: left; }
+.linefit-style-confirm { justify-self: end; min-width: 92px; }
 .linefit-rules { width: min(100%, 490px); margin: 0; box-shadow: 0 18px 60px #0008; }
 .linefit-rules h1 { margin: 0 0 12px; color: var(--accent); font-size: 22px; }
 .linefit-rules > p { margin: 0; color: var(--text); }

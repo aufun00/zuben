@@ -165,14 +165,12 @@ button { color: inherit; }
 .header-button:hover, .header-button:focus-visible { background: var(--surface-2); color: var(--text); }
 .header-icon { display: inline-grid; flex: 0 0 16px; width: 16px; height: 16px; place-items: center; }
 .header-icon svg { width: 100%; height: 100%; }
-.version-label { display: inline-flex; align-items: center; gap: 4px; padding: 5px 2px; border: 0; background: transparent; color: var(--quiet); cursor: pointer; font-size: 11px; white-space: nowrap; }
-.version-label:hover, .version-label:focus-visible { color: var(--text); }
-.version-label[data-unread="true"] .header-icon { color: var(--danger); }
-.version-label:disabled { cursor: wait; }
-.version-label .header-icon { width: 14px; height: 14px; }
-.exit-button { display: grid; flex: 0 0 30px; width: 30px; height: 30px; padding: 0; place-items: center; border: 0; border-radius: 9px; background: transparent; color: var(--quiet); cursor: pointer; }
-.exit-button:hover, .exit-button:focus-visible { background: var(--surface-2); color: var(--danger); }
-.exit-button .header-icon { width: 18px; height: 18px; }
+.settings-picker { position: relative; display: inline-flex; }
+.settings-button { position: relative; display: grid; flex: 0 0 30px; width: 30px; height: 30px; padding: 0; place-items: center; border: 0; border-radius: 9px; background: transparent; color: var(--quiet); cursor: pointer; }
+.settings-button:hover, .settings-button:focus-visible, .settings-button[aria-expanded="true"] { background: var(--surface-2); color: var(--text); }
+.settings-button .header-icon { width: 19px; height: 19px; }
+.settings-unread-dot { position: absolute; top: 3px; right: 3px; width: 7px; height: 7px; border: 1px solid var(--bg); border-radius: 50%; background: var(--danger); }
+.settings-button[data-unread="false"] .settings-unread-dot { display: none; }
 
 .language-picker { position: relative; display: inline-flex; }
 .language-menu {
@@ -205,6 +203,26 @@ button { color: inherit; }
 .language-menu button[aria-selected="true"] { color: var(--accent); }
 .language-menu strong { font-size: 12px; letter-spacing: .05em; }
 .language-menu span { color: var(--text); font-size: 13px; }
+
+.settings-menu {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 7px);
+  right: 0;
+  width: 230px;
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 16px 42px #0009;
+}
+.settings-section-title { padding: 7px 10px 4px; color: var(--muted); font-size: 11px; font-weight: 800; letter-spacing: .05em; }
+.settings-menu hr { height: 1px; margin: 6px 8px; border: 0; background: var(--line); }
+.settings-row { display: grid; width: 100%; min-height: 38px; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 7px 10px; border: 0; border-radius: 9px; background: transparent; cursor: pointer; text-align: left; }
+.settings-row:hover, .settings-row:focus-visible { outline: none; background: var(--surface-2); }
+.settings-row > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.settings-value { min-width: 7ch; color: var(--accent); text-align: right; white-space: nowrap; }
+.settings-row[data-setting="exit"]:hover, .settings-row[data-setting="exit"]:focus-visible { color: var(--danger); }
 
 .modal-backdrop {
   position: fixed;
@@ -264,10 +282,4 @@ button { color: inherit; }
   .app-header { gap: 3px; padding-inline: 7px; }
   .nickname-button { max-width: 82px; padding-inline: 4px; }
   .header-button { padding-inline: 3px; font-size: 11px; }
-  .version-label { font-size: 10px; }
-  .version-label .header-icon { display: none; }
-}
-
-@media (max-width: 480px) {
-  .version-label .header-icon { display: none; }
 }

@@ -14,6 +14,7 @@ export function renderGameShell(mount, { game, gameIdx, params, version, gameStr
   let cleanup = () => {};
   let cleanupHeader = () => {};
   let tourBinding = null;
+  let gameBinding = null;
   let languageBinding = null;
   const dispose = () => {
     tourBinding?.destroy();
@@ -26,6 +27,7 @@ export function renderGameShell(mount, { game, gameIdx, params, version, gameStr
   addEventListener("popstate", dispose, { once: true });
   const headerBinding = renderHeader(mount, {
     version,
+    gameID: game.gameID,
     showPerformanceMeter: true,
     onLanguageChange: (nextLanguage) => languageBinding?.(nextLanguage),
   });
@@ -86,7 +88,7 @@ export function renderGameShell(mount, { game, gameIdx, params, version, gameStr
     if (page.querySelector("[data-game-zone]")?.dataset.phase === PHASE_ENDED) location.reload();
   });
   updateTugBar(page, 0, ghostScore, strings, 0, durationMs ?? 0);
-  tourBinding = createGameBarTour(page, strings, { unlimited });
+  tourBinding = createGameBarTour(page, strings, { unlimited, onDone: () => gameBinding?.onGameBarTourDone?.() });
   if (setupGame) {
     const performanceMeter = createPerformanceMeter(headerBinding.performanceMeterHost, performanceMeterCfg);
     let startBeaconSent = false;
@@ -111,8 +113,10 @@ export function renderGameShell(mount, { game, gameIdx, params, version, gameStr
       ghostScore,
       strings,
       localized,
+      gameBarTourActive: tourBinding.active,
       performanceMeter: trackedPerformanceMeter,
     });
+    gameBinding = binding;
     emitBeacon("openLink");
     if (typeof binding === "function") cleanup = () => { binding(); performanceMeter.destroy(); };
     else if (binding) {

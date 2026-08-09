@@ -1,5 +1,5 @@
 import { LANG, LOCALES } from "../lang.js";
-import { getPreference, isPersistentStorageAvailable, setPreference, subscribeStorageAvailability } from "./storage.js";
+import { getPreference, isPersistentStorageAvailable, setPreference, subscribePreference, subscribeStorageAvailability } from "./storage.js";
 import { iconMarkup } from "./icons.js";
 import { getAppVersion, subscribeAppVersion } from "./version-state.js";
 import { openModal } from "./modal.js";
@@ -11,7 +11,7 @@ export function getLanguage() {
   return LOCALES.some((locale) => locale.id === stored) && LANG[stored] ? stored : fallback;
 }
 
-export function renderHeader(container, { version, onLanguageChange, showPerformanceMeter = false }) {
+export function renderHeader(container, { version, onLanguageChange, showPerformanceMeter = false, gameID = null }) {
   let activeVersion = getAppVersion();
   let language = getLanguage();
   let strings = LANG[language];
@@ -34,12 +34,11 @@ export function renderHeader(container, { version, onLanguageChange, showPerform
         ${iconMarkup("language", "header-icon")}<span>${locale.code}</span>
       </button>
     </span>
-    <button class="version-label" type="button" data-unread="${versionUnread}" title="${escapeHTML(strings.version)} ${escapeHTML(activeVersion)}" aria-label="${escapeHTML(strings.version)} ${escapeHTML(activeVersion)}">
-      ${iconMarkup(versionUnread ? "unread" : "version", "header-icon")}<span>v${activeVersion}</span>
-    </button>
-    <button class="exit-button" type="button" title="${escapeHTML(strings.exit)}" aria-label="${escapeHTML(strings.exit)}">
-      ${iconMarkup("exit", "header-icon")}
-    </button>
+    <span class="settings-picker">
+      <button class="settings-button" type="button" data-unread="${versionUnread}" aria-haspopup="menu" aria-expanded="false" title="${escapeHTML(strings.settings)}" aria-label="${escapeHTML(strings.settings)}">
+        ${iconMarkup("settings", "header-icon")}<i class="settings-unread-dot" aria-hidden="true"></i>
+      </button>
+    </span>
   `;
 
   header.querySelector(".brand-button").addEventListener("click", () => {
@@ -53,23 +52,26 @@ export function renderHeader(container, { version, onLanguageChange, showPerform
     nicknameButton.title = nickname;
   }));
   const languageButton = header.querySelector(".language-button");
-  const versionButton = header.querySelector(".version-label");
-  const exitButton = header.querySelector(".exit-button");
-  exitButton.addEventListener("click", () => openExitDialog(exitButton, strings));
-  versionButton.addEventListener("click", async () => {
-    if (versionButton.disabled) return;
-    versionButton.disabled = true;
-    try {
-      const displayed = await openVersionInfo(versionButton, strings);
-      if (displayed && activeVersion !== "?") {
-        setPreference("readedVer", activeVersion);
-        versionButton.dataset.unread = "false";
-        versionButton.querySelector("[data-icon]").outerHTML = iconMarkup("version", "header-icon");
-      }
-    } finally {
-      versionButton.disabled = false;
-    }
-  });
+  const settingsButton = header.querySelector(".settings-button");
+  const performanceMeterHost = header.querySelector("[data-performance-meter-host]");
+  const paintMetricsVisibility = (value = getPreference("metrics", "on")) => {
+    if (performanceMeterHost) performanceMeterHost.hidden = value === "off";
+  };
+  paintMetricsVisibility();
+  const unsubscribeMetrics = subscribePreference("metrics", paintMetricsVisibility);
+  settingsButton.addEventListener("click", () => openSettingsMenu({
+    header,
+    button: settingsButton,
+    strings,
+    gameID,
+    showPerformanceMeter,
+    getVersion: () => activeVersion,
+    onVersionRead: () => {
+      if (activeVersion === "?") return;
+      setPreference("readedVer", activeVersion);
+      settingsButton.dataset.unread = "false";
+    },
+  }));
   languageButton.addEventListener("click", () => openLanguageMenu({
     header,
     button: languageButton,
@@ -87,8 +89,8 @@ export function renderHeader(container, { version, onLanguageChange, showPerform
       brandButton.setAttribute("aria-label", strings.home);
       brandButton.title = strings.home;
       paintVersion(activeVersion);
-      exitButton.title = strings.exit;
-      exitButton.setAttribute("aria-label", strings.exit);
+      settingsButton.title = strings.settings;
+      settingsButton.setAttribute("aria-label", strings.settings);
       if (storageWarning) storageWarning.textContent = strings.storageUnavailable;
       onLanguageChange?.(nextLocale.id);
     },
@@ -111,11 +113,7 @@ export function renderHeader(container, { version, onLanguageChange, showPerform
   const paintVersion = (nextVersion) => {
     activeVersion = nextVersion;
     const unread = activeVersion !== "?" && getPreference("readedVer", "") !== activeVersion;
-    versionButton.dataset.unread = String(unread);
-    versionButton.title = `${strings.version} ${activeVersion}`;
-    versionButton.setAttribute("aria-label", `${strings.version} ${activeVersion}`);
-    versionButton.querySelector("span:last-child").textContent = `v${activeVersion}`;
-    versionButton.querySelector("[data-icon]").outerHTML = iconMarkup(unread ? "unread" : "version", "header-icon");
+    settingsButton.dataset.unread = String(unread);
   };
 
   container.append(header);
@@ -124,15 +122,17 @@ export function renderHeader(container, { version, onLanguageChange, showPerform
   const unsubscribeVersion = subscribeAppVersion(paintVersion);
   const cleanup = () => {
     header.querySelector(".language-menu")?.closeMenu?.();
+    header.querySelector(".settings-menu")?.closeMenu?.();
     unsubscribeStorage();
     unsubscribeVersion();
+    unsubscribeMetrics();
     storageWarning?.remove();
   };
   return {
     language,
     strings,
     nickname,
-    performanceMeterHost: header.querySelector("[data-performance-meter-host]"),
+    performanceMeterHost,
     cleanup,
   };
 }
@@ -225,6 +225,7 @@ function isScalar(value) { return value === null || typeof value !== "object"; }
 function displayScalar(value) { return value === null ? "null" : String(value); }
 
 function openLanguageMenu({ header, button, language, strings, onSelect }) {
+  header.querySelector(".settings-menu")?.closeMenu?.();
   const picker = header.querySelector(".language-picker");
   const existing = picker.querySelector(".language-menu");
   if (existing) {
@@ -283,6 +284,115 @@ function openLanguageMenu({ header, button, language, strings, onSelect }) {
     if (!picker.contains(event.target)) close();
   }, { capture: true, signal: controller.signal });
   options.find((option) => option.dataset.locale === language)?.focus();
+}
+
+function openSettingsMenu({ header, button, strings, gameID, showPerformanceMeter, getVersion, onVersionRead }) {
+  header.querySelector(".language-menu")?.closeMenu?.();
+  const picker = header.querySelector(".settings-picker");
+  const existing = picker.querySelector(".settings-menu");
+  if (existing) {
+    existing.closeMenu();
+    return;
+  }
+
+  const menu = document.createElement("div");
+  menu.className = "settings-menu";
+  menu.setAttribute("role", "menu");
+  menu.setAttribute("aria-label", strings.settings);
+  const gameRows = [];
+  if (gameID) {
+    if (showPerformanceMeter) gameRows.push(settingToggleRow("metrics", strings.metrics));
+    if (gameID === "linefit") gameRows.push(settingValueRow("linefitUIStyle", strings.uiStyle));
+  }
+  menu.innerHTML = `
+    ${gameRows.length ? `<div class="settings-section-title">${escapeHTML(strings.gameSettings)}</div>${gameRows.join("")}<hr>` : ""}
+    <div class="settings-section-title">${escapeHTML(strings.systemSettings)}</div>
+    ${settingToggleRow("music", strings.music)}
+    ${settingToggleRow("soundEffects", strings.soundEffects)}
+    ${settingActionRow("exit", strings.exitCompletely)}
+    ${settingActionRow("version", strings.version, `v${getVersion()}`)}
+  `;
+
+  const controller = new AbortController();
+  const close = ({ restoreFocus = false } = {}) => {
+    controller.abort();
+    menu.remove();
+    button.setAttribute("aria-expanded", "false");
+    if (restoreFocus) button.focus();
+  };
+  menu.closeMenu = close;
+  button.setAttribute("aria-expanded", "true");
+  picker.append(menu);
+
+  const rows = [...menu.querySelectorAll(".settings-row")];
+  const paintToggle = (key) => {
+    const row = menu.querySelector(`[data-setting="${key}"]`);
+    if (!row) return;
+    const on = getPreference(key, "on") !== "off";
+    row.setAttribute("aria-checked", String(on));
+    row.querySelector(".settings-value").textContent = on ? strings.on : strings.off;
+  };
+  const paintUIStyle = () => {
+    const row = menu.querySelector('[data-setting="linefitUIStyle"]');
+    if (!row) return;
+    row.querySelector(".settings-value").textContent = getPreference("linefitUIStyle", "colorful") === "duotone" ? strings.duotone : strings.colorful;
+  };
+  for (const key of ["metrics", "music", "soundEffects"]) paintToggle(key);
+  paintUIStyle();
+
+  for (const row of rows) {
+    row.addEventListener("click", async () => {
+      const key = row.dataset.setting;
+      if (["metrics", "music", "soundEffects"].includes(key)) {
+        setPreference(key, getPreference(key, "on") === "off" ? "on" : "off");
+        paintToggle(key);
+      } else if (key === "linefitUIStyle") {
+        setPreference(key, getPreference(key, "colorful") === "colorful" ? "duotone" : "colorful");
+        paintUIStyle();
+      } else if (key === "exit") {
+        close();
+        openExitDialog(button, strings);
+      } else if (key === "version") {
+        close();
+        const displayed = await openVersionInfo(button, strings);
+        if (displayed) onVersionRead();
+      }
+    });
+  }
+
+  menu.addEventListener("keydown", (event) => {
+    const current = rows.indexOf(document.activeElement);
+    let next = null;
+    if (event.key === "ArrowDown") next = rows[(current + 1) % rows.length];
+    if (event.key === "ArrowUp") next = rows[(current - 1 + rows.length) % rows.length];
+    if (event.key === "Home") next = rows[0];
+    if (event.key === "End") next = rows.at(-1);
+    if (next) {
+      event.preventDefault();
+      next.focus();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      close({ restoreFocus: true });
+    } else if (event.key === "Tab") {
+      close();
+    }
+  });
+  document.addEventListener("pointerdown", (event) => {
+    if (!picker.contains(event.target)) close();
+  }, { capture: true, signal: controller.signal });
+  rows[0]?.focus();
+}
+
+function settingToggleRow(key, label) {
+  return `<button class="settings-row" type="button" role="menuitemcheckbox" data-setting="${key}"><span>${escapeHTML(label)}</span><span class="settings-value"></span></button>`;
+}
+
+function settingValueRow(key, label) {
+  return `<button class="settings-row" type="button" role="menuitem" data-setting="${key}"><span>${escapeHTML(label)}</span><span class="settings-value"></span></button>`;
+}
+
+function settingActionRow(key, label, value = "") {
+  return `<button class="settings-row" type="button" role="menuitem" data-setting="${key}"><span>${escapeHTML(label)}</span><span class="settings-value">${escapeHTML(value)}</span></button>`;
 }
 
 function editNickname(strings, current, onSaved) {

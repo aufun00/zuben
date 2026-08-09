@@ -2,6 +2,16 @@ import { cfg, LINEFIT_SHAPES } from "./config.js";
 import { canPlaceShapeAnywhere, canPlaceShapeAt } from "./engine.js";
 import { OPERATION_CLEARING, OPERATION_IDLE, PHASE_RUNNING } from "./runtime.js";
 import { createLineFitSound } from "./sound.js";
+import { getPreference, subscribePreference } from "../common/storage.js";
+
+const COLORFUL_PALETTE = Object.freeze([
+  ["#ff9a9e", "#f45b69", "#9f2440"], ["#ffd36e", "#f2a93b", "#9b5c13"],
+  ["#fff27a", "#d8c936", "#80731a"], ["#9cf08b", "#4dc96a", "#18713b"],
+  ["#78ecc9", "#29b99a", "#12695e"], ["#80ddff", "#3ba7db", "#22598f"],
+  ["#94a8ff", "#6078df", "#34418f"], ["#c5a0ff", "#8d64dc", "#573495"],
+  ["#f2a1ff", "#c45bd4", "#7b2d89"], ["#ff9bd0", "#db579c", "#8f2f67"],
+  ["#ffb183", "#e87545", "#934225"], ["#b9d58a", "#7cab4f", "#476a29"],
+].map(Object.freeze));
 
 export function createLineFitRenderer({
   gameZone,
@@ -28,9 +38,25 @@ export function createLineFitRenderer({
   let renderedTransition = null;
   let renderedAvailability = "";
   let activeDrag = null;
+  let pendingPlacementColor = null;
+  let previousBoard = null;
+  let previousPlacementCount = null;
+  let trayColors = Array(cfg.TraySize).fill(null);
+  const boardColors = Array(cfg.BoardSize ** 2).fill(null);
+  let style = readUIStyle();
 
   boardElement.style.setProperty("--board-size", String(cfg.BoardSize));
   trayElement.style.setProperty("--tray-grid-size", String(cfg.TrayGridSize));
+  gameZone.dataset.linefitUiStyle = style;
+  const unsubscribeStyle = subscribePreference("linefitUIStyle", (value) => {
+    style = value === "colorful" ? "colorful" : "duotone";
+    gameZone.dataset.linefitUiStyle = style;
+    cancelDrag();
+    renderedBoard = null;
+    renderedTray = null;
+    const snapshot = runtime.snapshot();
+    if (snapshot && visible && !destroyed) paintSnapshot(snapshot);
+  });
 
   function render() {
     renderTimer = null;
@@ -52,6 +78,7 @@ export function createLineFitRenderer({
       snapshot.operation === OPERATION_CLEARING && snapshot.transition && !reducedMotion.matches;
     const shownBoard = animateClear ? snapshot.transition.placedBoard : snapshot.board;
     const shownTransition = animateClear ? snapshot.transition : null;
+    syncBoardColors(snapshot, shownBoard, shownTransition);
     if (shownBoard !== renderedBoard || shownTransition !== renderedTransition) {
       const clearing = new Set(shownTransition?.clearedIndexes ?? []);
       const newlyPlaced = new Set(shownTransition?.placedIndexes ?? []);
@@ -60,6 +87,7 @@ export function createLineFitRenderer({
         cell.classList.toggle("is-filled", shownBoard[index] === 1);
         cell.classList.toggle("is-clearing", clearing.has(index));
         cell.classList.toggle("is-new", newlyPlaced.has(index));
+        paintColor(cell, shownBoard[index] === 1 ? boardColors[index] : null);
       }
       renderedBoard = shownBoard;
       renderedTransition = shownTransition;
@@ -67,6 +95,7 @@ export function createLineFitRenderer({
 
     const availability = `${snapshot.phase}:${snapshot.operation}:${snapshot.board}:${snapshot.tray}`;
     if (snapshot.tray !== renderedTray || snapshot.board !== renderedBoard || availability !== renderedAvailability) {
+      syncTrayColors(snapshot.tray);
       for (let index = 0; index < traySlots.length; index += 1) {
         paintTraySlot(traySlots[index], index, snapshot);
       }
@@ -93,7 +122,7 @@ export function createLineFitRenderer({
     slot.classList.toggle("is-dead", !placeable);
     slot.disabled = snapshot.phase !== PHASE_RUNNING || snapshot.operation !== OPERATION_IDLE || !placeable;
     slot.setAttribute("aria-label", `${shape.id}, ${shape.cellCount} cells`);
-    slot.append(createPreview(shape));
+    slot.append(createPreview(shape, trayColors[trayIndex]));
   }
 
   function resolveDragContext(event) {
@@ -125,6 +154,7 @@ export function createLineFitRenderer({
       row: activeDrag.row,
       column: activeDrag.column,
     }) : null;
+    if (result) pendingPlacementColor = activeDrag.color;
     cancelDrag();
     return result;
   }
@@ -134,9 +164,10 @@ export function createLineFitRenderer({
     const snapshot = runtime.snapshot();
     if (snapshot?.phase !== PHASE_RUNNING || snapshot.operation !== OPERATION_IDLE || snapshot.tray[context.trayIndex] !== context.shapeIndex) return;
     const shape = LINEFIT_SHAPES[context.shapeIndex];
-    const floating = createFloating(shape);
+    const color = trayColors[context.trayIndex] ?? randomColorIndex();
+    const floating = createFloating(shape, color);
     document.body.append(floating);
-    activeDrag = { context, shape, floating, row: null, column: null, valid: false, preview: [] };
+    activeDrag = { context, shape, color, floating, row: null, column: null, valid: false, preview: [] };
     traySlots[context.trayIndex].classList.add("is-dragging");
     moveDrag(x, y);
   }
@@ -182,6 +213,35 @@ export function createLineFitRenderer({
     activeDrag = null;
   }
 
+  function syncBoardColors(snapshot, shownBoard, shownTransition) {
+    if (previousPlacementCount !== snapshot.placementCount) {
+      const placedIndexes = shownTransition?.placedIndexes ?? shownBoard.flatMap((filled, index) =>
+        filled === 1 && previousBoard?.[index] !== 1 ? [index] : []);
+      const color = pendingPlacementColor ?? randomColorIndex();
+      for (const index of placedIndexes) boardColors[index] = color;
+      pendingPlacementColor = null;
+    }
+    for (let index = 0; index < shownBoard.length; index += 1) {
+      if (shownBoard[index] === 1 && boardColors[index] === null) boardColors[index] = randomColorIndex();
+      if (shownBoard[index] !== 1) boardColors[index] = null;
+    }
+    previousBoard = snapshot.board;
+    previousPlacementCount = snapshot.placementCount;
+  }
+
+  function syncTrayColors(tray) {
+    const previousCount = renderedTray?.filter(Number.isSafeInteger).length ?? 0;
+    const nextCount = tray.filter(Number.isSafeInteger).length;
+    if (!renderedTray || (nextCount === cfg.TraySize && previousCount <= 1)) {
+      trayColors = distinctColorIndexes(cfg.TraySize);
+      return;
+    }
+    for (let index = 0; index < tray.length; index += 1) {
+      if (!Number.isSafeInteger(tray[index])) trayColors[index] = null;
+      else if (trayColors[index] === null) trayColors[index] = randomColorIndex();
+    }
+  }
+
   function schedule(delay = cfg.RenderWaitMS) {
     if (destroyed || !visible || renderTimer !== null) return;
     renderTimer = setTimeout(render, delay);
@@ -211,6 +271,7 @@ export function createLineFitRenderer({
       if (renderTimer !== null) clearTimeout(renderTimer);
       renderTimer = null;
       sound.destroy();
+      unsubscribeStyle();
     },
   });
 }
@@ -237,9 +298,10 @@ function createTraySlots(parent, count) {
   });
 }
 
-function createPreview(shape) {
+function createPreview(shape, color) {
   const preview = document.createElement("span");
   preview.className = "linefit-piece-preview";
+  paintColor(preview, color);
   const rowOffset = Math.floor((cfg.TrayGridSize - shape.height) / 2);
   const columnOffset = Math.floor((cfg.TrayGridSize - shape.width) / 2);
   const occupied = new Set(shape.cells.map((cell) => `${cell.row + rowOffset},${cell.column + columnOffset}`));
@@ -253,9 +315,11 @@ function createPreview(shape) {
   return preview;
 }
 
-function createFloating(shape) {
+function createFloating(shape, color) {
   const floating = document.createElement("div");
   floating.className = "linefit-floating";
+  floating.dataset.linefitUiStyle = readUIStyle();
+  paintColor(floating, color);
   floating.style.setProperty("--shape-columns", String(shape.width));
   floating.style.setProperty("--shape-rows", String(shape.height));
   const occupied = new Set(shape.cells.map((cell) => `${cell.row},${cell.column}`));
@@ -278,4 +342,34 @@ function measureBoard(element, size) {
 
 function clearPreview(indexes) {
   for (const index of indexes ?? []) document.querySelector(`[data-linefit-grid] [data-cell-index="${index}"]`)?.classList.remove("is-preview");
+}
+
+function readUIStyle() {
+  return getPreference("linefitUIStyle", "colorful") === "duotone" ? "duotone" : "colorful";
+}
+
+function randomColorIndex() {
+  return Math.floor(Math.random() * COLORFUL_PALETTE.length);
+}
+
+function distinctColorIndexes(count) {
+  const indexes = Array.from({ length: COLORFUL_PALETTE.length }, (_, index) => index);
+  for (let index = indexes.length - 1; index > 0; index -= 1) {
+    const swap = Math.floor(Math.random() * (index + 1));
+    [indexes[index], indexes[swap]] = [indexes[swap], indexes[index]];
+  }
+  return indexes.slice(0, count);
+}
+
+function paintColor(element, colorIndex) {
+  if (!Number.isSafeInteger(colorIndex) || !COLORFUL_PALETTE[colorIndex]) {
+    element.style.removeProperty("--linefit-color-top");
+    element.style.removeProperty("--linefit-color-middle");
+    element.style.removeProperty("--linefit-color-bottom");
+    return;
+  }
+  const [top, middle, bottom] = COLORFUL_PALETTE[colorIndex];
+  element.style.setProperty("--linefit-color-top", top);
+  element.style.setProperty("--linefit-color-middle", middle);
+  element.style.setProperty("--linefit-color-bottom", bottom);
 }

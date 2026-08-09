@@ -1,3 +1,5 @@
+import { getPreference, subscribePreference } from "./storage.js";
+
 export function createGameAudio({ surface, createBuffers, masterGain = 0.5 } = {}) {
   if (typeof createBuffers !== "function") throw new TypeError("createBuffers must be a function");
   const AudioContextClass = globalThis.AudioContext ?? globalThis.webkitAudioContext;
@@ -9,10 +11,11 @@ export function createGameAudio({ surface, createBuffers, masterGain = 0.5 } = {
   let lastKey = null;
   let destroyed = false;
   let visible = !document.hidden;
+  let enabled = getPreference("soundEffects", "on") !== "off";
   const active = new Set();
 
   function unlock() {
-    if (destroyed || !AudioContextClass) return;
+    if (destroyed || !enabled || !AudioContextClass) return;
     if (context === null) {
       try { context = new AudioContextClass({ latencyHint: "interactive" }); }
       catch { try { context = new AudioContextClass(); } catch { context = null; return; } }
@@ -38,7 +41,7 @@ export function createGameAudio({ surface, createBuffers, masterGain = 0.5 } = {
   }
 
   function requestResume() {
-    if (!visible || !context || context.state === "closed") return;
+    if (!enabled || !visible || !context || context.state === "closed") return;
     if (context.state === "running") { removeUnlockListeners(); playPending(); return; }
     if (resumePending) return;
     try {
@@ -54,13 +57,18 @@ export function createGameAudio({ surface, createBuffers, masterGain = 0.5 } = {
   function play({ key, soundID, offsetMS = 0, gain = 1, pan = 0 } = {}) {
     if (destroyed || !visible || key === lastKey) return false;
     if (typeof key !== "string" || !key || soundID === undefined || soundID === null) throw new TypeError("Audio events require a key string and soundID");
+    if (!enabled) {
+      lastKey = key;
+      pending = null;
+      return false;
+    }
     pending = { key, soundID, offsetMS, gain, pan };
     playPending();
     return true;
   }
 
   function playPending() {
-    if (destroyed || !visible || !pending || !context || context.state !== "running" || !buffers) return;
+    if (destroyed || !enabled || !visible || !pending || !context || context.state !== "running" || !buffers) return;
     const event = pending;
     if (event.key === lastKey) { pending = null; return; }
     const buffer = buffers.get(event.soundID);
@@ -104,6 +112,16 @@ export function createGameAudio({ surface, createBuffers, masterGain = 0.5 } = {
 
   surface?.addEventListener("click", unlock, true);
   surface?.addEventListener("keydown", unlock, true);
+  const unsubscribeEnabled = subscribePreference("soundEffects", (value) => {
+    enabled = value !== "off";
+    if (!enabled) {
+      pending = null;
+      stop();
+      context?.suspend().catch(() => {});
+    } else if (visible && context && context.state !== "running" && context.state !== "closed") {
+      requestResume();
+    }
+  });
   return Object.freeze({
     play,
     clearPending() { pending = null; },
@@ -119,6 +137,7 @@ export function createGameAudio({ surface, createBuffers, masterGain = 0.5 } = {
       pending = null;
       stop();
       removeUnlockListeners();
+      unsubscribeEnabled();
       if (context && context.state !== "closed") context.close().catch(() => {});
       context = null;
       master = null;

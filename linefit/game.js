@@ -16,6 +16,7 @@ import { updateGameBarCharge } from "../common/game-bar-charge.js";
 import { updateGameResultView } from "../common/game-result.js";
 import { bindGameInput } from "../common/gesture-input.js";
 import { openModal } from "../common/modal.js";
+import { getPreference, setPreference } from "../common/storage.js";
 import { clearLineFitCheckpoint, loadLineFitCheckpoint, saveLineFitCheckpoint } from "./checkpoint.js";
 import { cfg, LINEFIT_PERFORMANCE_CFG, LINEFIT_SHAPES } from "./config.js";
 import { GAME_LANG } from "./lang.js";
@@ -39,7 +40,7 @@ export function renderGamePage(mount, context) {
   });
 }
 
-function setupLineFit({ page, gameZone, game, gameIdx, parsed, durationMs, unlimited, ghostScore, strings, localized, performanceMeter }) {
+function setupLineFit({ page, gameZone, game, gameIdx, parsed, durationMs, unlimited, ghostScore, strings, localized, gameBarTourActive, performanceMeter }) {
   let activeStrings = strings;
   let activeLocalized = localized;
   let latestSnapshot = null;
@@ -58,6 +59,9 @@ function setupLineFit({ page, gameZone, game, gameIdx, parsed, durationMs, unlim
   let renderedEnergy = null;
   let savedCheckpointRevision = -1;
   let checkpointPrompt = null;
+  let checkpointHandled = false;
+  let styleSelection = "colorful";
+  let gameBarTourDone = !gameBarTourActive;
 
   gameZone.classList.add("linefit-zone");
   gameZone.innerHTML = `
@@ -68,6 +72,12 @@ function setupLineFit({ page, gameZone, game, gameIdx, parsed, durationMs, unlim
       <div class="linefit-tray" data-linefit-tray></div>
     </div>
     <div class="linefit-cover" data-linefit-cover>
+      <section class="linefit-style-chooser" data-linefit-style-chooser role="dialog" aria-labelledby="linefit-style-title" hidden>
+        <h1 id="linefit-style-title" data-style-title></h1>
+        <div class="linefit-style-options" role="radiogroup" data-style-options></div>
+        <p data-style-copy></p>
+        <button class="action-button primary linefit-style-confirm" type="button" data-style-confirm></button>
+      </section>
       <div class="rules-card linefit-rules">
         <h1 data-instructions-title></h1>
         <p data-rules-copy></p>
@@ -80,7 +90,17 @@ function setupLineFit({ page, gameZone, game, gameIdx, parsed, durationMs, unlim
   const playfield = gameZone.querySelector("[data-linefit-playfield]");
   const tray = gameZone.querySelector("[data-linefit-tray]");
   const cover = gameZone.querySelector("[data-linefit-cover]");
+  const rulesCard = cover.querySelector(".linefit-rules");
+  const styleChooser = cover.querySelector("[data-linefit-style-chooser]");
   const overlay = gameZone.querySelector("[data-linefit-overlay]");
+  styleChooser.querySelector("[data-style-options]").innerHTML = ["colorful", "duotone"]
+    .map((styleID) => `<button class="linefit-style-option" type="button" role="radio" data-style-option="${styleID}">${stylePreviewMarkup(styleID)}<strong data-style-label></strong></button>`)
+    .join("");
+  styleChooser.querySelectorAll("[data-style-option]").forEach((option) => option.addEventListener("click", () => {
+    styleSelection = option.dataset.styleOption;
+    paintStyleSelection();
+  }));
+  styleChooser.querySelector("[data-style-confirm]").addEventListener("click", confirmStyleSelection);
 
   const storedCheckpoint = unlimited ? loadLineFitCheckpoint(parsed.code) : null;
   try {
@@ -111,8 +131,9 @@ function setupLineFit({ page, gameZone, game, gameIdx, parsed, durationMs, unlim
   });
   document.addEventListener("visibilitychange", onVisibility);
   renderInstructionText();
+  renderStyleChooserText();
   onSnapshot(runtime.snapshot());
-  if (storedCheckpoint !== null && runtime.snapshot().phase !== PHASE_READY) showCheckpointPrompt();
+  if (gameBarTourDone) continueEntryFlow();
 
   function createRuntime(checkpoint) {
     runtime = createLineFitRuntime({
@@ -160,6 +181,7 @@ function setupLineFit({ page, gameZone, game, gameIdx, parsed, durationMs, unlim
       updateGameControlButton(button, snapshot.phase, activeStrings);
       updateGameSurfaceState({ cover, playfield, overlay }, snapshot.phase);
     }
+    if (!styleChooser.hidden) button.disabled = true;
 
     if (snapshot.phase !== PHASE_RUNNING || snapshot.operation !== OPERATION_IDLE) {
       input?.cancelSession();
@@ -182,6 +204,57 @@ function setupLineFit({ page, gameZone, game, gameIdx, parsed, durationMs, unlim
       saveLineFitCheckpoint(parsed.code, snapshot.checkpoint);
       savedCheckpointRevision = snapshot.checkpointRevision;
     }
+  }
+
+  function continueEntryFlow() {
+    if (!gameBarTourDone) return true;
+    if (getPreference("linefitUIStyleChosen", "") !== "1") {
+      showStyleChooser();
+      return false;
+    }
+    if (!checkpointHandled && storedCheckpoint !== null && runtime.snapshot().phase !== PHASE_READY) {
+      checkpointHandled = true;
+      showCheckpointPrompt();
+    }
+    return true;
+  }
+
+  function showStyleChooser() {
+    styleSelection = getPreference("linefitUIStyle", "colorful") === "duotone" ? "duotone" : "colorful";
+    rulesCard.hidden = true;
+    styleChooser.hidden = false;
+    paintStyleSelection();
+    page.querySelector(".game-button").disabled = true;
+    requestAnimationFrame(() => styleChooser.querySelector('[data-style-option="colorful"]')?.focus({ preventScroll: true }));
+  }
+
+  function confirmStyleSelection() {
+    setPreference("linefitUIStyle", styleSelection);
+    setPreference("linefitUIStyleChosen", "1");
+    styleChooser.hidden = true;
+    rulesCard.hidden = false;
+    const button = page.querySelector(".game-button");
+    if (latestSnapshot) updateGameControlButton(button, latestSnapshot.phase, activeStrings);
+    if (!checkpointHandled && storedCheckpoint !== null && runtime.snapshot().phase !== PHASE_READY) {
+      checkpointHandled = true;
+      showCheckpointPrompt();
+    } else {
+      button.focus({ preventScroll: true });
+    }
+  }
+
+  function paintStyleSelection() {
+    styleChooser.querySelectorAll("[data-style-option]").forEach((option) => {
+      option.setAttribute("aria-checked", String(option.dataset.styleOption === styleSelection));
+    });
+  }
+
+  function renderStyleChooserText() {
+    styleChooser.querySelector("[data-style-title]").textContent = activeLocalized.uiStyleTitle;
+    styleChooser.querySelector('[data-style-option="colorful"] [data-style-label]').textContent = activeLocalized.uiStyleColorful;
+    styleChooser.querySelector('[data-style-option="duotone"] [data-style-label]').textContent = activeLocalized.uiStyleDuotone;
+    styleChooser.querySelector("[data-style-copy]").textContent = activeLocalized.uiStyleCopy;
+    styleChooser.querySelector("[data-style-confirm]").textContent = activeLocalized.uiStyleConfirm;
   }
 
   function showCheckpointPrompt() {
@@ -260,6 +333,10 @@ function setupLineFit({ page, gameZone, game, gameIdx, parsed, durationMs, unlim
   }
 
   return {
+    onGameBarTourDone() {
+      gameBarTourDone = true;
+      return continueEntryFlow();
+    },
     setLanguage({ strings: nextStrings, localized: nextLocalized }) {
       activeStrings = nextStrings;
       activeLocalized = nextLocalized;
@@ -269,6 +346,7 @@ function setupLineFit({ page, gameZone, game, gameIdx, parsed, durationMs, unlim
         return;
       }
       renderInstructionText();
+      renderStyleChooserText();
       forceChrome = true;
       resultView?.setLanguage({
         language: document.documentElement.lang.startsWith("zh") ? "zh" : "en",
@@ -285,4 +363,13 @@ function setupLineFit({ page, gameZone, game, gameIdx, parsed, durationMs, unlim
       ({ input, renderer, runtime } = disposeGamePageResources({ visibilityHandler: onVisibility, input, renderer, runtime }));
     },
   };
+}
+
+function stylePreviewMarkup(styleID) {
+  const occupied = new Set([1, 2, 5, 6, 7, 10, 12, 13, 14, 17, 18, 19, 23, 24]);
+  let colorIndex = 0;
+  return `<span class="linefit-style-board" data-preview-style="${styleID}" aria-hidden="true">${Array.from({ length: 25 }, (_, index) => {
+    if (!occupied.has(index)) return "<i></i>";
+    return `<i class="is-piece preview-color-${colorIndex++ % 6}"></i>`;
+  }).join("")}</span>`;
 }
